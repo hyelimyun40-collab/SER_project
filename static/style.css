@@ -1,0 +1,69 @@
+body{ margin:0; font-family: system-ui, -apple-system, sans-serif; background:#111; color:#eee; }
+.card{
+  max-width: 760px;
+  margin: 40px auto;
+  background:#1b1b1b;
+  border-radius: 16px;
+  padding: 22px;
+  box-shadow: 0 18px 60px rgba(0,0,0,.55);
+}
+h1,h2{ margin: 0 0 14px 0; }
+label{ display:block; margin: 10px 0 6px; color:#bbb; }
+input{
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 10px;
+  border: 1px solid #333;
+  background:#0f0f0f;
+  color:#eee;
+}
+button{
+  cursor:pointer;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1px solid #333;
+  background:#0f0f0f;
+  color:#eee;
+  font-size: 15px;
+}
+button:hover{ border-color:#666; }
+.toprow{ display:flex; justify-content:space-between; color:#aaa; font-size: 14px; margin-bottom: 10px; }
+.panel{ margin-top: 14px; }
+.btnrow{ display:flex; gap:10px; margin: 10px 0; flex-wrap: wrap; }
+.grid5{ display:grid; grid-template-columns: 1fr 1fr; gap:10px; }
+.grid5 button:last-child{ grid-column: 1 / span 2; }
+.hint{ color:#aaa; font-size: 13px; margin-top: 8px; }
+.hidden{ display:none; }
+code{ color:#ddd; }
+
+/* 5AFC: 5개 한 줄 */
+.row5{
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+
+/* 화면 작아질 때 줄바꿈 */
+@media (max-width: 720px){
+  .row5{
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* 선택 표시 */
+.selected{
+  border-color: #999 !important;
+  box-shadow: 0 0 0 2px rgba(255,255,255,.18) inset;
+}
+
+/* Next 버튼 강조 */
+.primary{
+  border-color: #666;
+}
+
+/* disabled 버튼 */
+button:disabled{
+  opacity: .45;
+  cursor: not-allowed;
+}
