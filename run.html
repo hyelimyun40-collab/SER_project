@@ -1,222 +1,58 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
-  <title>Run</title>
-  <link rel="stylesheet" href="/static/style.css"/>
+<meta charset="utf-8"/>
+<title>Run</title>
+<link rel="stylesheet" href="./static/style.css"/>
 </head>
 <body>
-  <div class="card" id="app">
-    <div class="toprow">
-      <div id="progress"></div>
-      <div></div>
-    </div>
 
-    <h2 id="question"></h2>
+<div class="card">
+  <h2 id="question">Listen and choose the emotion</h2>
 
-    <!-- 2I2AFC -->
-    <div id="two" class="panel hidden">
-      <div class="btnrow">
-        <button id="playA" type="button">Play A</button>
-        <button id="playB" type="button">Play B</button>
-      </div>
+  <button id="playBtn">Play stimulus</button>
 
-      <div class="btnrow">
-        <button class="choice2" data-choice="A" type="button">Choose A</button>
-        <button class="choice2" data-choice="B" type="button">Choose B</button>
-      </div>
-
-      <p class="hint">원하는 만큼 들어보고, A/B 중 하나를 선택하세요.</p>
-    </div>
-
-    <!-- 5AFC -->
-    <div id="one" class="panel hidden">
-      <div class="btnrow">
-        <button id="playOne" type="button">Play stimulus</button>
-      </div>
-
-      <div class="row5">
-        <button class="choice5" data-choice="Amusement" type="button">Amusement</button>
-        <button class="choice5" data-choice="Anger" type="button">Anger</button>
-        <button class="choice5" data-choice="Sadness" type="button">Sadness</button>
-        <button class="choice5" data-choice="Fear" type="button">Fear</button>
-        <button class="choice5" data-choice="Surprise" type="button">Surprise</button>
-      </div>
-
-      <div class="btnrow">
-        <button id="nextBtn" type="button" class="primary" disabled>Next</button>
-      </div>
-
-      <p class="hint">감정을 하나 선택한 다음 Next를 누르세요. (선택은 바꿀 수 있습니다)</p>
-    </div>
+  <div class="row5">
+    <button class="choice" data-e="Amusement">Amusement</button>
+    <button class="choice" data-e="Anger">Anger</button>
+    <button class="choice" data-e="Sadness">Sadness</button>
+    <button class="choice" data-e="Fear">Fear</button>
+    <button class="choice" data-e="Surprise">Surprise</button>
   </div>
+</div>
 
 <script>
-let current = null;
-let stageInfo = null;
-let t0 = null;
+const participant = localStorage.getItem("participant_id");
 
-let played = { A: [], B: [], single: [] };
-let pendingChoice = null;
+// 예시 stimulus (나중에 192개로 확장)
+const stimuli = [
+  "amu_F545.wav",
+  "sad_M820.wav"
+];
 
-function $(id){ return document.getElementById(id); }
-function show(el){ el.classList.remove("hidden"); }
-function hide(el){ el.classList.add("hidden"); }
-function nowMs(){ return performance.now(); }
+let idx = Math.floor(Math.random() * stimuli.length);
+let audio = new Audio(`./stimuli/EMO_STIM_rvb/${stimuli[idx]}`);
 
-function resetState(){
-  played = { A: [], B: [], single: [] };
-  pendingChoice = null;
-  $("nextBtn").disabled = true;
-  document.querySelectorAll(".choice5").forEach(b => b.classList.remove("selected"));
-  document.querySelectorAll(".choice2").forEach(b => b.classList.remove("selected"));
-}
+document.getElementById("playBtn").onclick = () => audio.play();
 
-function setProgress(){
-  const sid = stageInfo?.id ?? 0;
-  const scount = stageInfo?.count ?? 4;
-  const sidx = stageInfo?.index ?? 0;
-  const stotal = stageInfo?.total ?? 0;
-  $("progress").textContent = `${sid}단계 | Trial ${sidx} / ${stotal}`;
-}
+document.querySelectorAll(".choice").forEach(btn => {
+  btn.onclick = async () => {
+    const emotion = btn.dataset.e;
 
-function askWord(emo){
-  // ✅ 2단계에서 질문 감정이 파일과 반드시 일치하도록
-  if (emo === "sad") return "sad";
-  if (emo === "fear") return "fearful";
-  if (emo === "amu") return "amused";
-  if (emo === "rel") return "relieved";
-  // fallback
-  return "the target emotion";
-}
-
-function questionFor2I2AFC(trial, stage){
-  const meta = trial.meta || {};
-
-  // 1단계 discrimination: meta.target = sad / amu
-  if (stage?.id === 1) {
-    const target = meta.target;
-    if (target === "sad") return "Which of the two stimuli sounded more sad?";
-    if (target === "amu") return "Which of the two stimuli sounded more amused?";
-    return "Which of the two stimuli sounded more like the target emotion?";
-  }
-
-  // 2단계 dry vs rvb: meta.emo = sad / fear / amu / rel
-  if (stage?.id === 2) {
-    const emo = meta.emo;
-    const w = askWord(emo);
-    return `Which of the two stimuli sounded more ${w}?`;
-  }
-
-  return trial.question || "";
-}
-
-function playUrl(url, tag){
-  const a = new Audio(url);
-  a.play();
-  played[tag].push(Math.round(nowMs() - t0));
-}
-
-async function loadTrial(){
-  const res = await fetch("/api/trial");
-  const js = await res.json();
-  if (js.done){
-    location.href = "/done";
-    return;
-  }
-
-  current = js.trial;
-  stageInfo = js.stage;
-
-  resetState();
-  t0 = nowMs();
-
-  setProgress();
-
-  if (current.stim_A && current.stim_B){
-    $("question").textContent = questionFor2I2AFC(current, stageInfo);
-    show($("two")); hide($("one"));
-  } else {
-    $("question").textContent = current.question || "";
-    show($("one")); hide($("two"));
-  }
-}
-
-// ---- audio ----
-$("playA").addEventListener("click", ()=>{
-  const url = `/stimuli/EMO_PRACT_rvb/${encodeURIComponent(current.stim_A)}`;
-  playUrl(url, "A");
-});
-$("playB").addEventListener("click", ()=>{
-  const url = `/stimuli/EMO_PRACT_rvb/${encodeURIComponent(current.stim_B)}`;
-  playUrl(url, "B");
-});
-$("playOne").addEventListener("click", ()=>{
-  let subdir = "EMO_137";
-  if (current.block === "5AFC_test") subdir = "EMO_STIM_rvb";
-  const url = `/stimuli/${subdir}/${encodeURIComponent(current.stim)}`;
-  playUrl(url, "single");
-});
-
-// ---- 2I2AFC submit immediately ----
-document.querySelectorAll(".choice2").forEach(btn=>{
-  btn.addEventListener("click", async ()=>{
-    document.querySelectorAll(".choice2").forEach(b => b.classList.remove("selected"));
-    btn.classList.add("selected");
-
-    const choice = btn.dataset.choice;
-    const rt = Math.round(nowMs() - t0);
-    const questionShown = $("question").textContent;
-
-    const res = await fetch("/api/submit", {
-      method:"POST",
-      headers: {"Content-Type":"application/json"},
+    await fetch("YOUR_GOOGLE_APPS_SCRIPT_URL", {
+      method: "POST",
       body: JSON.stringify({
-        response: choice,
-        rt_ms: rt,
-        played: played,
-        question_shown: questionShown
+        participant,
+        stimulus: stimuli[idx],
+        response: emotion,
+        timestamp: Date.now()
       })
     });
-    const out = await res.json();
-    if (!out.ok) { alert("Submit failed"); return; }
-    loadTrial();
-  });
+
+    location.href = "done.html";
+  };
 });
-
-// ---- 5AFC choose (can change) + Next submit ----
-document.querySelectorAll(".choice5").forEach(btn=>{
-  btn.addEventListener("click", ()=>{
-    pendingChoice = btn.dataset.choice;
-    $("nextBtn").disabled = false;
-    document.querySelectorAll(".choice5").forEach(b => b.classList.remove("selected"));
-    btn.classList.add("selected");
-  });
-});
-
-$("nextBtn").addEventListener("click", async ()=>{
-  if (!pendingChoice) return;
-
-  const rt = Math.round(nowMs() - t0);
-  const questionShown = $("question").textContent;
-
-  const res = await fetch("/api/submit", {
-    method:"POST",
-    headers: {"Content-Type":"application/json"},
-    body: JSON.stringify({
-      response: pendingChoice,
-      rt_ms: rt,
-      played: played,
-      question_shown: questionShown
-    })
-  });
-  const out = await res.json();
-  if (!out.ok) { alert("Submit failed"); return; }
-  loadTrial();
-});
-
-loadTrial();
 </script>
+
 </body>
 </html>
