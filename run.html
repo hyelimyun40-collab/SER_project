@@ -6,15 +6,52 @@
   <title>Experiment Run</title>
   <link rel="stylesheet" href="./static/style.css"/>
   <script src="./stimuli_list.js"></script>
+  <style>
+    body { 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      min-height: 100vh; 
+      margin: 0; 
+      background-color: #f5f5f5;
+    }
+    .card { 
+      text-align: center; 
+      width: 100%; 
+      max-width: 600px; 
+      padding: 30px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .panel { margin: 20px 0; }
+    .btnrow { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
+    
+    /* Next 버튼 전용 스타일: 너무 크지 않게 설정 */
+    #nextBtn {
+      padding: 8px 30px;
+      font-size: 15px;
+      min-width: 120px;
+      cursor: pointer;
+    }
+    
+    .row5 { 
+      display: flex; 
+      flex-wrap: wrap; 
+      justify-content: center; 
+      gap: 10px; 
+      margin: 20px 0; 
+    }
+    .selected { background-color: #007bff !important; color: white; }
+  </style>
 </head>
 <body>
   <div class="card" id="app">
     <div class="toprow">
-      <div id="progress">Loading...</div>
-      <div></div>
+      <div id="progress" style="font-weight: bold; color: #666;">Loading...</div>
     </div>
 
-    <h2 id="question"></h2>
+    <h2 id="question" style="margin: 30px 0; font-size: 1.2rem;"></h2>
 
     <div id="two" class="panel hidden">
       <div class="btnrow">
@@ -40,20 +77,16 @@
       </div>
     </div>
 
-    <div class="btnrow" style="margin-top: 20px;">
-      <button id="nextBtn" type="button" class="primary" style="width: 100%;" disabled>Next</button>
+    <div class="btnrow" style="margin-top: 30px;">
+      <button id="nextBtn" type="button" class="primary" disabled>Next</button>
     </div>
-    <p class="hint">소리를 듣고 정답을 선택한 후 Next 버튼을 누르세요.</p>
+    <p class="hint" style="font-size: 0.85rem; color: #999; margin-top: 20px;">
+      답변을 선택한 후 Next를 클릭하세요.
+    </p>
   </div>
 
 <script>
-// ==========================================
-// 1. 설정 및 상태 변수
-// ==========================================
-// [중요] 배포한 Google Apps Script 웹 앱 URL을 아래 따옴표 안에 넣으세요.
-const GAS_URL = "https://script.google.com/macros/s/AKfycbxUijkRPCjY4CL0Y6UkoJ6E7JtJ3IY3R1--iAdOdPCHCTH85_gQmeWPgskUcOy8EUxn/exec"; 
-
-// URL 파라미터에서 참가자 ID 가져오기 (없으면 anon)
+const GAS_URL = "여기에_본인의_GAS_URL_입력"; 
 const urlParams = new URLSearchParams(window.location.search);
 const participantId = urlParams.get('participant_id') || "anon";
 
@@ -73,56 +106,42 @@ function shuffle(array) {
 
 function buildExperiment() {
   let allTrials = [];
-
-  // Stage 1
-  let stage1 = JSON.parse(JSON.stringify(PAIRS_DISCRIMINATION));
-  shuffle(stage1).forEach(item => {
+  // Stage 1 (2I2AFC Discrim)
+  shuffle([...PAIRS_DISCRIMINATION]).forEach(item => {
     const swap = Math.random() < 0.5;
     allTrials.push({ stage: 1, block: "2I2AFC_1", stim_A: swap?item.b:item.a, stim_B: swap?item.a:item.b, t: item.t, 
                      question: item.t === "sad" ? "Which sounded more sad?" : "Which sounded more amused?" });
   });
-
-  // Stage 2
-  let stage2_targets = JSON.parse(JSON.stringify(TARGETS_DRY_RVB));
-  shuffle(stage2_targets).forEach(item => {
+  // Stage 2 (2I2AFC Dry/Rvb)
+  shuffle([...TARGETS_DRY_RVB]).forEach(item => {
     const base = `${item.emo}_${item.sex}${item.utt}`;
     const swap = Math.random() < 0.5;
     allTrials.push({ stage: 2, block: "2I2AFC_2", stim_A: swap?`${base}_rvb.wav`:`${base}.wav`, stim_B: swap?`${base}.wav`:`${base}_rvb.wav`, 
                      emo: item.emo, question: `Which sounded more ${item.emo}?` });
   });
-
-  // Stage 3
+  // Stage 3 (5AFC Pract)
   shuffle([...FILES_PRACTICE_5AFC]).slice(0, 10).forEach(fn => {
     allTrials.push({ stage: 3, block: "5AFC_practice", stim: fn, question: "Which emotion is being expressed?" });
   });
-
-  // Stage 4
+  // Stage 4 (5AFC Test)
   shuffle([...FILES_TEST_5AFC]).forEach(fn => {
     allTrials.push({ stage: 4, block: "5AFC_test", stim: fn, question: "Which emotion is being expressed?" });
   });
-
   return allTrials;
 }
 
 function loadTrial() {
   if (cursor >= trials.length) { window.location.href = "./done.html"; return; }
-
   const t = trials[cursor];
   played = { A: [], B: [], single: [] };
   pendingChoice = null;
   t0 = performance.now();
-  
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
-
-  // --- 진행도 계산 (현재 Stage 내에서의 번호) ---
   const currentStageTrials = trials.filter(tr => tr.stage === t.stage);
   const currentIdxInStage = currentStageTrials.indexOf(t) + 1;
-  const totalInStage = currentStageTrials.length;
-  
-  document.getElementById("progress").textContent = `Stage ${t.stage} | ${currentIdxInStage} / ${totalInStage}`;
+  document.getElementById("progress").textContent = `Stage ${t.stage} | ${currentIdxInStage} / ${currentStageTrials.length}`;
   document.getElementById("question").textContent = t.question;
-
   if (t.stim_A) {
     document.getElementById("two").classList.remove("hidden");
     document.getElementById("one").classList.add("hidden");
@@ -143,26 +162,19 @@ function playAudio(type) {
 async function submitData() {
   const t = trials[cursor];
   const payload = {
-    participant_id: participantId,
-    trial_index: cursor + 1,
-    stage: t.stage,
-    block: t.block,
+    participant_id: participantId, trial_index: cursor + 1, stage: t.stage, block: t.block,
     stim_A: t.stim_A || "", stim_B: t.stim_B || "", stim: t.stim || "",
     question: t.question, response: pendingChoice,
-    rt_ms: Math.round(performance.now() - t0),
-    played_log: JSON.stringify(played)
+    rt_ms: Math.round(performance.now() - t0), played_log: JSON.stringify(played)
   };
-
   fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
   cursor++;
   loadTrial();
 }
 
-// 이벤트 바인딩
 document.getElementById("playA").onclick = () => playAudio('A');
 document.getElementById("playB").onclick = () => playAudio('B');
 document.getElementById("playOne").onclick = () => playAudio('single');
-
 document.querySelectorAll(".choice2, .choice5").forEach(btn => {
   btn.onclick = (e) => {
     const parent = btn.closest('.panel');
@@ -172,9 +184,7 @@ document.querySelectorAll(".choice2, .choice5").forEach(btn => {
     document.getElementById("nextBtn").disabled = false;
   };
 });
-
 document.getElementById("nextBtn").onclick = submitData;
-
 window.onload = () => { trials = buildExperiment(); loadTrial(); };
 </script>
 </body>
