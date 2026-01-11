@@ -2,34 +2,29 @@
 <html lang="en">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
   <title>SER Pilot</title>
-  <link rel="stylesheet" href="/static/style.css"/>
+  <link rel="stylesheet" href="./static/style.css"/>
 </head>
 <body>
   <div class="card">
     <h1>SER Pilot</h1>
 
-    <form id="startForm">
-      <label>Participant ID</label>
-      <input name="participant_id" placeholder="e.g., P001" />
-      <button type="submit">Start</button>
-    </form>
+    <label>Participant ID</label>
+    <input id="pid" placeholder="e.g., P001" />
 
-    <p class="hint">
-      Logs will be saved automatically in <code>data/</code>.
-    </p>
+    <button id="startBtn">Start</button>
   </div>
 
 <script>
-document.getElementById("startForm").addEventListener("submit", async (e) => {
-  e.preventDefault();
-  const form = new FormData(e.target);
-  const res = await fetch("/start", { method:"POST", body: form });
-  const js = await res.json();
-  if (js.ok) location.href = "/run";
-  else alert("Start failed: " + (js.error || ""));
-});
+document.getElementById("startBtn").onclick = () => {
+  const pid = document.getElementById("pid").value.trim();
+  if (!pid) {
+    alert("Participant ID를 입력하세요");
+    return;
+  }
+  localStorage.setItem("participant_id", pid);
+  location.href = "run.html";
+};
 </script>
 </body>
 </html>
