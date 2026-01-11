@@ -81,5 +81,4 @@ emotions.forEach(emo => {
         });
     });
 });
-// stimuli_list.js 맨 아래에 추가해서 확인용으로 사용
-console.log("Stage 4 파일 목록:", FILES_TEST_5AFC);
+
