@@ -27,7 +27,14 @@
     .panel { margin: 20px 0; }
     .btnrow { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
     
-    /* Next 버튼 전용 스타일: 너무 크지 않게 설정 */
+    /* 질문 텍스트 스타일 수정: 검정색 & 굵게 */
+    #question { 
+      margin: 30px 0; 
+      font-size: 1.3rem; 
+      color: #000000; 
+      font-weight: 800; 
+    }
+    
     #nextBtn {
       padding: 8px 30px;
       font-size: 15px;
@@ -43,15 +50,16 @@
       margin: 20px 0; 
     }
     .selected { background-color: #007bff !important; color: white; }
+    #progress { font-weight: bold; color: #444; margin-bottom: 10px; }
   </style>
 </head>
 <body>
   <div class="card" id="app">
     <div class="toprow">
-      <div id="progress" style="font-weight: bold; color: #666;">Loading...</div>
+      <div id="progress">Loading...</div>
     </div>
 
-    <h2 id="question" style="margin: 30px 0; font-size: 1.2rem;"></h2>
+    <h2 id="question"></h2>
 
     <div id="two" class="panel hidden">
       <div class="btnrow">
@@ -106,24 +114,24 @@ function shuffle(array) {
 
 function buildExperiment() {
   let allTrials = [];
-  // Stage 1 (2I2AFC Discrim)
+  // Stage 1
   shuffle([...PAIRS_DISCRIMINATION]).forEach(item => {
     const swap = Math.random() < 0.5;
     allTrials.push({ stage: 1, block: "2I2AFC_1", stim_A: swap?item.b:item.a, stim_B: swap?item.a:item.b, t: item.t, 
                      question: item.t === "sad" ? "Which sounded more sad?" : "Which sounded more amused?" });
   });
-  // Stage 2 (2I2AFC Dry/Rvb)
+  // Stage 2
   shuffle([...TARGETS_DRY_RVB]).forEach(item => {
     const base = `${item.emo}_${item.sex}${item.utt}`;
     const swap = Math.random() < 0.5;
     allTrials.push({ stage: 2, block: "2I2AFC_2", stim_A: swap?`${base}_rvb.wav`:`${base}.wav`, stim_B: swap?`${base}.wav`:`${base}_rvb.wav`, 
                      emo: item.emo, question: `Which sounded more ${item.emo}?` });
   });
-  // Stage 3 (5AFC Pract)
+  // Stage 3
   shuffle([...FILES_PRACTICE_5AFC]).slice(0, 10).forEach(fn => {
     allTrials.push({ stage: 3, block: "5AFC_practice", stim: fn, question: "Which emotion is being expressed?" });
   });
-  // Stage 4 (5AFC Test)
+  // Stage 4
   shuffle([...FILES_TEST_5AFC]).forEach(fn => {
     allTrials.push({ stage: 4, block: "5AFC_test", stim: fn, question: "Which emotion is being expressed?" });
   });
@@ -136,26 +144,37 @@ function loadTrial() {
   played = { A: [], B: [], single: [] };
   pendingChoice = null;
   t0 = performance.now();
+  
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
+
   const currentStageTrials = trials.filter(tr => tr.stage === t.stage);
   const currentIdxInStage = currentStageTrials.indexOf(t) + 1;
   document.getElementById("progress").textContent = `Stage ${t.stage} | ${currentIdxInStage} / ${currentStageTrials.length}`;
   document.getElementById("question").textContent = t.question;
+
   if (t.stim_A) {
     document.getElementById("two").classList.remove("hidden");
     document.getElementById("one").classList.add("hidden");
   } else {
     document.getElementById("one").classList.remove("hidden");
     document.getElementById("two").classList.add("hidden");
+    
+    // [추가] Stage 3, 4에서 자동으로 음원 재생
+    // 브라우저의 정책상 사용자의 첫 상호작용(Start 버튼 클릭) 이후부터 자동 재생이 가능합니다.
+    setTimeout(() => playAudio('single'), 300); 
   }
 }
 
 function playAudio(type) {
   const t = trials[cursor];
+  if (!t) return;
   let folder = t.stage <= 2 ? "EMO_PRACT_rvb" : (t.stage === 3 ? "EMO_137" : "EMO_STIM_rvb");
   let file = (type === 'A') ? t.stim_A : (type === 'B' ? t.stim_B : t.stim);
-  new Audio(`./stimuli/${folder}/${file}`).play();
+  
+  const audio = new Audio(`./stimuli/${folder}/${file}`);
+  audio.play().catch(e => console.log("Autoplay prevented or error:", e));
+  
   played[type].push(Math.round(performance.now() - t0));
 }
 
@@ -175,6 +194,7 @@ async function submitData() {
 document.getElementById("playA").onclick = () => playAudio('A');
 document.getElementById("playB").onclick = () => playAudio('B');
 document.getElementById("playOne").onclick = () => playAudio('single');
+
 document.querySelectorAll(".choice2, .choice5").forEach(btn => {
   btn.onclick = (e) => {
     const parent = btn.closest('.panel');
@@ -184,6 +204,7 @@ document.querySelectorAll(".choice2, .choice5").forEach(btn => {
     document.getElementById("nextBtn").disabled = false;
   };
 });
+
 document.getElementById("nextBtn").onclick = submitData;
 window.onload = () => { trials = buildExperiment(); loadTrial(); };
 </script>
