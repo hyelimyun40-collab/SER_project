@@ -1,58 +1,321 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8"/>
-<title>Run</title>
-<link rel="stylesheet" href="./static/style.css"/>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Experiment Run</title>
+  <link rel="stylesheet" href="./static/style.css"/>
+  <script src="./stimuli_list.js"></script>
 </head>
 <body>
+  <div class="card" id="app">
+    <div class="toprow">
+      <div id="progress">Loading...</div>
+      <div></div>
+    </div>
 
-<div class="card">
-  <h2 id="question">Listen and choose the emotion</h2>
+    <h2 id="question"></h2>
 
-  <button id="playBtn">Play stimulus</button>
+    <div id="two" class="panel hidden">
+      <div class="btnrow">
+        <button id="playA" type="button">Play A</button>
+        <button id="playB" type="button">Play B</button>
+      </div>
 
-  <div class="row5">
-    <button class="choice" data-e="Amusement">Amusement</button>
-    <button class="choice" data-e="Anger">Anger</button>
-    <button class="choice" data-e="Sadness">Sadness</button>
-    <button class="choice" data-e="Fear">Fear</button>
-    <button class="choice" data-e="Surprise">Surprise</button>
+      <div class="btnrow">
+        <button class="choice2" data-choice="A" type="button">Choose A</button>
+        <button class="choice2" data-choice="B" type="button">Choose B</button>
+      </div>
+
+      <p class="hint">원하는 만큼 들어보고, A/B 중 하나를 선택하세요.</p>
+    </div>
+
+    <div id="one" class="panel hidden">
+      <div class="btnrow">
+        <button id="playOne" type="button">Play stimulus</button>
+      </div>
+
+      <div class="row5">
+        <button class="choice5" data-choice="Amusement" type="button">Amusement</button>
+        <button class="choice5" data-choice="Anger" type="button">Anger</button>
+        <button class="choice5" data-choice="Sadness" type="button">Sadness</button>
+        <button class="choice5" data-choice="Fear" type="button">Fear</button>
+        <button class="choice5" data-choice="Surprise" type="button">Surprise</button>
+      </div>
+
+      <div class="btnrow">
+        <button id="nextBtn" type="button" class="primary" disabled>Next</button>
+      </div>
+
+      <p class="hint">감정을 하나 선택한 다음 Next를 누르세요.</p>
+    </div>
   </div>
-</div>
 
 <script>
-const participant = localStorage.getItem("participant_id");
+// ==========================================
+// 1. 설정 및 상태 변수
+// ==========================================
+// [중요] 배포한 Google Apps Script 웹 앱 URL을 아래 따옴표 안에 넣으세요.
+const GAS_URL = "https://script.google.com/macros/s/AKfycbxUijkRPCjY4CL0Y6UkoJ6E7JtJ3IY3R1--iAdOdPCHCTH85_gQmeWPgskUcOy8EUxn/exec"; 
 
-// 예시 stimulus (나중에 192개로 확장)
-const stimuli = [
-  "amu_F545.wav",
-  "sad_M820.wav"
-];
+// URL 파라미터에서 참가자 ID 가져오기 (없으면 anon)
+const urlParams = new URLSearchParams(window.location.search);
+const participantId = urlParams.get('participant_id') || "anon";
 
-let idx = Math.floor(Math.random() * stimuli.length);
-let audio = new Audio(`./stimuli/EMO_STIM_rvb/${stimuli[idx]}`);
+let trials = [];       // 전체 실험 순서가 담길 배열
+let cursor = 0;        // 현재 진행 중인 trial 인덱스
+let t0 = null;         // 반응시간 측정 시작 시간
+let played = { A: [], B: [], single: [] }; // 재생 횟수/시간 로그
+let pendingChoice = null; // 5AFC에서 선택 대기 중인 값
 
-document.getElementById("playBtn").onclick = () => audio.play();
+// ==========================================
+// 2. 유틸리티 함수
+// ==========================================
+function shuffle(array) {
+  let currentIndex = array.length, randomIndex;
+  while (currentIndex != 0) {
+    randomIndex = Math.floor(Math.random() * currentIndex);
+    currentIndex--;
+    [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+  }
+  return array;
+}
 
-document.querySelectorAll(".choice").forEach(btn => {
-  btn.onclick = async () => {
-    const emotion = btn.dataset.e;
+function show(id) { document.getElementById(id).classList.remove("hidden"); }
+function hide(id) { document.getElementById(id).classList.add("hidden"); }
+function nowMs() { return performance.now(); }
 
-    await fetch("YOUR_GOOGLE_APPS_SCRIPT_URL", {
-      method: "POST",
-      body: JSON.stringify({
-        participant,
-        stimulus: stimuli[idx],
-        response: emotion,
-        timestamp: Date.now()
-      })
+// ==========================================
+// 3. 실험 빌드 (Python 로직 이식)
+// ==========================================
+function buildExperiment() {
+  let allTrials = [];
+
+  // --- Stage 1: 2I2AFC Discrimination (4 trials) ---
+  // stimuli_list.js의 PAIRS_DISCRIMINATION 사용
+  let stage1 = JSON.parse(JSON.stringify(PAIRS_DISCRIMINATION)); // Deep copy
+  shuffle(stage1);
+  
+  stage1.forEach(item => {
+    // A/B 순서 랜덤 섞기
+    const swap = Math.random() < 0.5;
+    allTrials.push({
+      stage: 1,
+      block: "2I2AFC_discrimination",
+      stim_A: swap ? item.b : item.a,
+      stim_B: swap ? item.a : item.b,
+      meta_target: item.t,
+      question: item.t === "sad" ? "Which of the two stimuli sounded more sad?" : "Which of the two stimuli sounded more amused?"
     });
+  });
 
-    location.href = "done.html";
+  // --- Stage 2: 2I2AFC Dry vs Rvb (8 trials) ---
+  // stimuli_list.js의 TARGETS_DRY_RVB 사용
+  let stage2_targets = JSON.parse(JSON.stringify(TARGETS_DRY_RVB));
+  shuffle(stage2_targets);
+
+  stage2_targets.forEach(item => {
+    const baseName = `${item.emo}_${item.sex}${item.utt}`;
+    const fileDry = `${baseName}.wav`;
+    const fileRvb = `${baseName}_rvb.wav`; // _rvb 접미사 가정
+
+    // A/B 순서 랜덤
+    const swap = Math.random() < 0.5;
+    
+    // 질문 텍스트 생성
+    let qWord = "";
+    if (item.emo === "sad") qWord = "sad";
+    else if (item.emo === "fear") qWord = "fearful";
+    else if (item.emo === "amu") qWord = "amused";
+    else if (item.emo === "rel") qWord = "relieved";
+
+    allTrials.push({
+      stage: 2,
+      block: "2I2AFC_dry_rvb",
+      stim_A: swap ? fileRvb : fileDry,
+      stim_B: swap ? fileDry : fileRvb,
+      meta_emo: item.emo,
+      question: `Which of the two stimuli sounded more ${qWord}?`
+    });
+  });
+
+  // --- Stage 3: 5AFC Practice (10 trials) ---
+  // stimuli_list.js의 FILES_PRACTICE_5AFC 사용
+  let stage3_files = JSON.parse(JSON.stringify(FILES_PRACTICE_5AFC));
+  shuffle(stage3_files); // 랜덤 섞기
+  // 10개만 선택 (파일이 10개라면 전체 사용)
+  stage3_files = stage3_files.slice(0, 10);
+
+  stage3_files.forEach(fn => {
+    allTrials.push({
+      stage: 3,
+      block: "5AFC_practice",
+      stim: fn,
+      question: "Which of the following 5 emotion classes did the talker seem to be expressing?"
+    });
+  });
+
+  // --- Stage 4: 5AFC Test (60 trials) ---
+  // stimuli_list.js의 FILES_TEST_5AFC 사용
+  let stage4_files = JSON.parse(JSON.stringify(FILES_TEST_5AFC));
+  shuffle(stage4_files); // 전체 랜덤 섞기
+
+  stage4_files.forEach(fn => {
+    allTrials.push({
+      stage: 4,
+      block: "5AFC_test",
+      stim: fn,
+      question: "Which of the following 5 emotion classes did the talker seem to be expressing?"
+    });
+  });
+
+  return allTrials;
+}
+
+// ==========================================
+// 4. 실험 실행 로직
+// ==========================================
+function loadTrial() {
+  if (cursor >= trials.length) {
+    window.location.href = "./done.html"; // 종료 페이지로 이동
+    return;
+  }
+
+  const t = trials[cursor];
+  
+  // 상태 초기화
+  played = { A: [], B: [], single: [] };
+  pendingChoice = null;
+  t0 = nowMs();
+  
+  // UI 초기화
+  document.getElementById("nextBtn").disabled = true;
+  document.querySelectorAll(".choice5, .choice2").forEach(b => b.classList.remove("selected"));
+
+  // 진행률 표시
+  document.getElementById("progress").textContent = `Stage ${t.stage} | Trial ${cursor + 1} / ${trials.length}`;
+  document.getElementById("question").textContent = t.question;
+
+  // 패널 전환
+  if (t.stim_A && t.stim_B) {
+    show("two"); hide("one");
+  } else {
+    show("one"); hide("two");
+  }
+}
+
+// --- 오디오 재생 핸들러 ---
+function playAudio(type) {
+  const t = trials[cursor];
+  let filename = "";
+  let folder = "";
+
+  // 폴더 경로 설정 (app.py 로직 기반)
+  if (t.stage === 1 || t.stage === 2) {
+    folder = "EMO_PRACT_rvb";
+  } else if (t.stage === 3) {
+    folder = "EMO_137";
+  } else if (t.stage === 4) {
+    folder = "EMO_STIM_rvb";
+  }
+
+  // 파일명 결정
+  if (type === 'A') filename = t.stim_A;
+  else if (type === 'B') filename = t.stim_B;
+  else filename = t.stim;
+
+  // 재생
+  // Github Pages에서는 폴더 구조가 루트 기준이므로 ./stimuli/...
+  const path = `./stimuli/${folder}/${filename}`;
+  const audio = new Audio(path);
+  audio.play().catch(e => alert("Audio play failed: " + path));
+
+  played[type].push(Math.round(nowMs() - t0));
+}
+
+// --- 응답 제출 핸들러 ---
+async function submitData(response) {
+  const t = trials[cursor];
+  const rt = Math.round(nowMs() - t0);
+
+  const payload = {
+    participant_id: participantId,
+    trial_index: cursor + 1,
+    stage: t.stage,
+    block: t.block,
+    stim_A: t.stim_A || "",
+    stim_B: t.stim_B || "",
+    stim: t.stim || "",
+    question: t.question,
+    response: response,
+    rt_ms: rt,
+    played_log: JSON.stringify(played)
   };
-});
-</script>
 
+  // Google Sheets로 전송 (no-cors 모드: 응답 내용을 읽을 수 없으나 전송은 됨)
+  try {
+    await fetch(GAS_URL, {
+      method: "POST",
+      mode: "no-cors", 
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload)
+    });
+  } catch (err) {
+    console.error("Submission error:", err);
+  }
+
+  // 다음 시행으로 이동
+  cursor++;
+  loadTrial();
+}
+
+// ==========================================
+// 5. 이벤트 리스너 연결
+// ==========================================
+
+// 오디오 버튼
+document.getElementById("playA").addEventListener("click", () => playAudio('A'));
+document.getElementById("playB").addEventListener("click", () => playAudio('B'));
+document.getElementById("playOne").addEventListener("click", () => playAudio('single'));
+
+// 2I2AFC 선택 버튼
+document.querySelectorAll(".choice2").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    // 시각적 피드백
+    document.querySelectorAll(".choice2").forEach(b => b.classList.remove("selected"));
+    e.target.classList.add("selected");
+    
+    // 즉시 제출
+    const choice = e.target.getAttribute("data-choice");
+    submitData(choice);
+  });
+});
+
+// 5AFC 선택 버튼
+document.querySelectorAll(".choice5").forEach(btn => {
+  btn.addEventListener("click", (e) => {
+    document.querySelectorAll(".choice5").forEach(b => b.classList.remove("selected"));
+    e.target.classList.add("selected");
+    
+    pendingChoice = e.target.getAttribute("data-choice");
+    document.getElementById("nextBtn").disabled = false;
+  });
+});
+
+// Next 버튼
+document.getElementById("nextBtn").addEventListener("click", () => {
+  if (pendingChoice) {
+    submitData(pendingChoice);
+  }
+});
+
+// ==========================================
+// 6. 초기화 및 시작
+// ==========================================
+window.onload = function() {
+  trials = buildExperiment();
+  loadTrial();
+};
+</script>
 </body>
 </html>
