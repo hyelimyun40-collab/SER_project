@@ -23,9 +23,9 @@ DIR_STIM_RVB = os.path.join(STIM_ROOT, "EMO_STIM_rvb")    # 5AFC test (dry + rvb
 
 EMOTIONS_5AFC = ["Amusement", "Anger", "Sadness", "Fear", "Surprise"]
 
-# amu_F137.wav / fear_M137.wav / rel_F545_rvb.wav / amu_F820_rvb1.wav ...
+# surprise가 surp로 되어 있는 경우 등을 모두 잡기 위해 수정
 RE_FN = re.compile(
-    r"^(?P<emo>[A-Za-z]+)_(?P<sex>[MF])(?P<utt>\d+)(?:_rvb(?P<rvb>(?:\d+)|(?:)))?\.wav$"
+    r"^(?P<emo>[A-Za-z]+)_(?P<sex>[MF])(?P<utt>\d+)(?:_(?P<rvb>rvb\d*))?\.wav$"
 )
 
 def ensure_dirs():
@@ -41,23 +41,27 @@ def parse_fn(fn: str) -> dict:
     if not m:
         return {"raw": fn}
 
-    emo = m.group("emo").lower()
+    emo_raw = m.group("emo").lower()
+    # surp를 Surprise로 변환
+    emo_map = {
+        "amu": "Amusement",
+        "ang": "Anger",
+        "sad": "Sadness",
+        "fear": "Fear",
+        "surp": "Surprise",
+        "sur": "Surprise"
+    }
+    emo = emo_map.get(emo_raw, emo_raw.capitalize())
+    
     sex = m.group("sex")
     utt = m.group("utt")
-    rvb_raw = m.group("rvb")  # None / "" / "1" / "2" ...
+    rvb_level = m.group("rvb") if m.group("rvb") else "dry"
 
-    if rvb_raw is None:
-        rvb_level = "dry"
-    else:
-        rvb_level = "rvb" + (rvb_raw if rvb_raw != "" else "")
-        if rvb_level == "rvb":
-            rvb_level = "rvb"
-
-    base_id = f"{emo}_{sex}{utt}"
+    base_id = f"{emo_raw}_{sex}{utt}"
     return {
-        "emo": emo,              # sad/fear/amu/rel/ang/surp...
-        "sex": sex,              # F/M
-        "utt": utt,              # 137/545/820...
+        "emo": emo,              # Amusement, Anger 등 (UI 표시용)
+        "sex": sex,
+        "utt": utt,
         "rvb_level": rvb_level,  # dry / rvb / rvb1 / rvb2
         "base_id": base_id,
     }
