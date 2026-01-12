@@ -114,18 +114,47 @@ function shuffle(array) {
 
 function buildExperiment() {
   let allTrials = [];
+// 감정 줄임말을 풀네임으로 바꾸는 사전(Dictionary)
+  const emoFullNames = {
+    "amu": "amused",
+    "rel": "relieved",
+    "sad": "sad",
+    "ang": "angry",
+    "fear": "fearful",
+    "surp": "surprised"
+  };
+
   // Stage 1
   shuffle([...PAIRS_DISCRIMINATION]).forEach(item => {
     const swap = Math.random() < 0.5;
-    allTrials.push({ stage: 1, block: "2I2AFC_1", stim_A: swap?item.b:item.a, stim_B: swap?item.a:item.b, t: item.t, 
-                     question: item.t === "sad" ? "Which sounded more sad?" : "Which sounded more amused?" });
+    // item.t가 "amu"라면 "amused"로, 없으면 그대로 사용
+    const fullEmo = emoFullNames[item.t] || item.t; 
+    
+    allTrials.push({ 
+      stage: 1, 
+      block: "2I2AFC_1", 
+      stim_A: swap ? item.b : item.a, 
+      stim_B: swap ? item.a : item.b, 
+      t: item.t, 
+      question: `Which sounded more ${fullEmo}?` 
+    });
   });
+
   // Stage 2
   shuffle([...TARGETS_DRY_RVB]).forEach(item => {
     const base = `${item.emo}_${item.sex}${item.utt}`;
     const swap = Math.random() < 0.5;
-    allTrials.push({ stage: 2, block: "2I2AFC_2", stim_A: swap?`${base}_rvb.wav`:`${base}.wav`, stim_B: swap?`${base}.wav`:`${base}_rvb.wav`, 
-                     emo: item.emo, question: `Which sounded more ${item.emo}?` });
+    // item.emo가 "amu"라면 "amused"로 변환
+    const fullEmo = emoFullNames[item.emo] || item.emo;
+
+    allTrials.push({ 
+      stage: 2, 
+      block: "2I2AFC_2", 
+      stim_A: swap ? `${base}_rvb.wav` : `${base}.wav`, 
+      stim_B: swap ? `${base}.wav` : `${base}_rvb.wav`, 
+      emo: item.emo, 
+      question: `Which sounded more ${fullEmo}?` 
+    });
   });
   // Stage 3
   shuffle([...FILES_PRACTICE_5AFC]).slice(0, 10).forEach(fn => {
