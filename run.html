@@ -169,7 +169,7 @@ function loadTrial() {
 function playAudio(type) {
   const t = trials[cursor];
   if (!t) return;
-  let folder = t.stage <= 2 ? "EMO_PRACT_rvb" : (t.stage === 3 ? "EMO_137" : "EMO_STIM_rvb");
+  let folder = t.stage <= 2 ? "EMO_PRACT_rvb_Norm" : (t.stage === 3 ? "EMO_137_Norm" : "EMO_STIM_rvb_Norm");
   let file = (type === 'A') ? t.stim_A : (type === 'B' ? t.stim_B : t.stim);
   
   const audio = new Audio(`./stimuli/${folder}/${file}`);
