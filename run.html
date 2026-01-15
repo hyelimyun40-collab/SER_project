@@ -27,7 +27,7 @@
     .panel { margin: 20px 0; }
     .btnrow { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
     
-    /* 질문 텍스트 스타일 수정: 검정색 & 굵게 */
+    /* 질문 텍스트 스타일 */
     #question { 
       margin: 30px 0; 
       font-size: 1.3rem; 
@@ -35,7 +35,7 @@
       font-weight: 800; 
     }
     
-    #nextBtn {
+    #nextBtn, #resumeBtn {
       padding: 8px 30px;
       font-size: 15px;
       min-width: 120px;
@@ -51,12 +51,33 @@
     }
     .selected { background-color: #007bff !important; color: white; }
     #progress { font-weight: bold; color: #444; margin-bottom: 10px; }
+
+    /* 휴식 화면 메시지 */
+    #breakMsg {
+        font-size: 1.2rem;
+        line-height: 1.6;
+        color: #333;
+        margin-bottom: 30px;
+        white-space: pre-line; /* 줄바꿈 적용 */
+    }
   </style>
 </head>
 <body>
   <div class="card" id="app">
     <div class="toprow">
       <div id="progress">Loading...</div>
+    </div>
+
+    <div id="breakPanel" class="panel hidden">
+        <h2 style="color: #28a745;">☕ Break Time</h2>
+        <div id="breakMsg">
+            Stage 완료! 수고하셨습니다.<br>
+            잠시 눈을 붙이고 편안하게 휴식을 취해주세요.<br><br>
+            준비가 되시면 아래 버튼을 눌러 다음 단계로 진행하세요.
+        </div>
+        <div class="btnrow">
+            <button id="resumeBtn" class="primary" type="button">Resume Experiment</button>
+        </div>
     </div>
 
     <h2 id="question"></h2>
@@ -85,16 +106,20 @@
       </div>
     </div>
 
-    <div class="btnrow" style="margin-top: 30px;">
+    <div class="btnrow" id="nextRow" style="margin-top: 30px;">
       <button id="nextBtn" type="button" class="primary" disabled>Next</button>
     </div>
-    <p class="hint" style="font-size: 0.85rem; color: #999; margin-top: 20px;">
+    <p class="hint" id="hintText" style="font-size: 0.85rem; color: #999; margin-top: 20px;">
       답변을 선택한 후 Next를 클릭하세요.
     </p>
   </div>
 
 <script>
+// ================= CONFIGURATION =================
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxUijkRPCjY4CL0Y6UkoJ6E7JtJ3IY3R1--iAdOdPCHCTH85_gQmeWPgskUcOy8EUxn/exec"; 
+const NOISE_LEVELS = ["06", "09", "12"]; // 노이즈 데시벨 목록
+// ===============================================
+
 const urlParams = new URLSearchParams(window.location.search);
 const participantId = urlParams.get('participant_id') || "anon";
 
@@ -103,6 +128,17 @@ let cursor = 0;
 let t0 = null;
 let played = { A: [], B: [], single: [] };
 let pendingChoice = null;
+
+// 감정 이름 매핑
+const emoFullNames = {
+  "amu": "amused", "rel": "relieved", "sad": "sad",
+  "ang": "angry", "fear": "fearful", "surp": "surprised", "sur": "surprised"
+};
+
+// 노이즈 파일명 생성기 (bb_06 + 원본파일명)
+function makeNoiseFile(dB, originalFilename) {
+    return `bb_${dB}${originalFilename}`;
+}
 
 function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
@@ -113,112 +149,176 @@ function shuffle(array) {
 }
 
 function buildExperiment() {
-  let allTrials = [];
-// 감정 줄임말을 풀네임으로 바꾸는 사전(Dictionary)
-  const emoFullNames = {
-    "amu": "amused",
-    "rel": "relieved",
-    "sad": "sad",
-    "ang": "angry",
-    "fear": "fearful",
-    "surp": "surprised"
-  };
+  let stage1 = [], stage2 = [], stage3 = [], stage4 = [];
 
-  // Stage 1
-  shuffle([...PAIRS_DISCRIMINATION]).forEach(item => {
-    const swap = Math.random() < 0.5;
-    // item.t가 "amu"라면 "amused"로, 없으면 그대로 사용
-    const fullEmo = emoFullNames[item.t] || item.t; 
-    
-    allTrials.push({ 
-      stage: 1, 
-      block: "2I2AFC_1", 
-      stim_A: swap ? item.b : item.a, 
-      stim_B: swap ? item.a : item.b, 
-      t: item.t, 
-      question: `Which sounded more ${fullEmo}?` 
-    });
+  // --- Stage 1: Discrimination (Pair comparison) ---
+  // 파일 A vs B 비교 (3가지 노이즈 레벨 각각 수행)
+  let basePairs = [...PAIRS_DISCRIMINATION]; 
+  NOISE_LEVELS.forEach(dB => {
+      basePairs.forEach(item => {
+          const swap = Math.random() < 0.5;
+          const fullEmo = emoFullNames[item.t] || item.t;
+          
+          let fileA = makeNoiseFile(dB, item.a);
+          let fileB = makeNoiseFile(dB, item.b);
+
+          stage1.push({
+              stage: 1,
+              block: `2I2AFC_1_${dB}dB`,
+              stim_A: swap ? fileB : fileA,
+              stim_B: swap ? fileA : fileB,
+              t: item.t,
+              question: `Which sounded more ${fullEmo}?`
+          });
+      });
   });
 
-  // Stage 2
-  shuffle([...TARGETS_DRY_RVB]).forEach(item => {
-    const base = `${item.emo}_${item.sex}${item.utt}`;
-    const swap = Math.random() < 0.5;
-    // item.emo가 "amu"라면 "amused"로 변환
-    const fullEmo = emoFullNames[item.emo] || item.emo;
+  // --- Stage 2: Target Comparison (Dry vs Reverb logic preserved) ---
+  // 요청사항: "Stage 2 로직 수정하지 말아줘. Dry vs Reverb 그대로 쓸거야"
+  // 해석: Dry와 Reverb 파일 모두에 노이즈가 씌워졌으므로, 
+  //      [bb_XX_Dry] vs [bb_XX_Reverb] 를 비교합니다.
+  let baseTargets = [...TARGETS_DRY_RVB]; 
+  NOISE_LEVELS.forEach(dB => {
+      baseTargets.forEach(item => {
+          const base = `${item.emo}_${item.sex}${item.utt}`;
+          const fullEmo = emoFullNames[item.emo] || item.emo;
+          const swap = Math.random() < 0.5;
+          
+          // 기존 파일명: base.wav (Dry) / base_rvb.wav (Reverb)
+          // 노이즈 파일명: bb_06...wav
+          let fileDry = makeNoiseFile(dB, `${base}.wav`);
+          let fileRvb = makeNoiseFile(dB, `${base}_rvb.wav`);
 
-    allTrials.push({ 
-      stage: 2, 
-      block: "2I2AFC_2", 
-      stim_A: swap ? `${base}_rvb.wav` : `${base}.wav`, 
-      stim_B: swap ? `${base}.wav` : `${base}_rvb.wav`, 
-      emo: item.emo, 
-      question: `Which sounded more ${fullEmo}?` 
-    });
+          stage2.push({
+              stage: 2,
+              block: `2I2AFC_2_${dB}dB`,
+              stim_A: swap ? fileRvb : fileDry,
+              stim_B: swap ? fileDry : fileRvb,
+              emo: item.emo,
+              question: `Which sounded more ${fullEmo}?`
+          });
+      });
   });
-  // Stage 3
-  shuffle([...FILES_PRACTICE_5AFC]).slice(0, 10).forEach(fn => {
-    allTrials.push({ stage: 3, block: "5AFC_practice", stim: fn, question: "Which emotion is being expressed?" });
+
+  // --- Stage 3: Practice (5AFC) ---
+  // 연습도 3배로 늘림 (요청사항: trial수 3배)
+  let practiceFiles = [...FILES_PRACTICE_5AFC].slice(0, 10); 
+  NOISE_LEVELS.forEach(dB => {
+      practiceFiles.forEach(fn => {
+          stage3.push({ 
+              stage: 3, 
+              block: `5AFC_practice_${dB}dB`, 
+              stim: makeNoiseFile(dB, fn), 
+              question: "Which emotion is being expressed?" 
+          });
+      });
   });
-  // Stage 4
-  shuffle([...FILES_TEST_5AFC]).forEach(fn => {
-    allTrials.push({ stage: 4, block: "5AFC_test", stim: fn, question: "Which emotion is being expressed?" });
+
+  // --- Stage 4: Test (5AFC) ---
+  let testFiles = [...FILES_TEST_5AFC];
+  NOISE_LEVELS.forEach(dB => {
+      testFiles.forEach(fn => {
+          stage4.push({ 
+              stage: 4, 
+              block: `5AFC_test_${dB}dB`, 
+              stim: makeNoiseFile(dB, fn), 
+              question: "Which emotion is being expressed?" 
+          });
+      });
   });
-  return allTrials;
+
+  // 각 스테이지 내부 셔플 (dB 섞기)
+  shuffle(stage1);
+  shuffle(stage2);
+  shuffle(stage3);
+  shuffle(stage4);
+
+  // 스테이지 사이에 Break 객체 삽입
+  return [
+      ...stage1,
+      { type: 'break' },
+      ...stage2,
+      { type: 'break' },
+      ...stage3,
+      { type: 'break' },
+      ...stage4
+  ];
 }
 
 function loadTrial() {
   if (cursor >= trials.length) { window.location.href = "./done.html"; return; }
+  
   const t = trials[cursor];
   played = { A: [], B: [], single: [] };
   pendingChoice = null;
   t0 = performance.now();
-  
+
+  // 모든 UI 패널 일단 숨김
+  document.getElementById("breakPanel").classList.add("hidden");
+  document.getElementById("two").classList.add("hidden");
+  document.getElementById("one").classList.add("hidden");
+  document.getElementById("question").style.display = "block";
+  document.getElementById("nextRow").style.display = "flex";
+  document.getElementById("hintText").style.display = "block";
+
+  // --- [Case 1] 휴식 화면 (Break) ---
+  if (t.type === 'break') {
+      document.getElementById("progress").textContent = "Break";
+      document.getElementById("question").style.display = "none";
+      document.getElementById("nextRow").style.display = "none";
+      document.getElementById("hintText").style.display = "none";
+      document.getElementById("breakPanel").classList.remove("hidden");
+      return; 
+  }
+
+  // --- [Case 2] 일반 Trial ---
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
 
-  const currentStageTrials = trials.filter(tr => tr.stage === t.stage);
+  // 진행도 표시 (Break 제외하고 계산)
+  const currentStageTrials = trials.filter(tr => tr.stage === t.stage && tr.type !== 'break');
   const currentIdxInStage = currentStageTrials.indexOf(t) + 1;
   document.getElementById("progress").textContent = `Stage ${t.stage} | ${currentIdxInStage} / ${currentStageTrials.length}`;
   document.getElementById("question").textContent = t.question;
 
   if (t.stim_A) {
+    // Stage 1, 2
     document.getElementById("two").classList.remove("hidden");
-    document.getElementById("one").classList.add("hidden");
   } else {
+    // Stage 3, 4
     document.getElementById("one").classList.remove("hidden");
-    document.getElementById("two").classList.add("hidden");
-    
-    // [추가] Stage 3, 4에서 자동으로 음원 재생
-    // 브라우저의 정책상 사용자의 첫 상호작용(Start 버튼 클릭) 이후부터 자동 재생이 가능합니다.
-    setTimeout(() => playAudio('single'), 300); 
+    // 자동 재생
+    setTimeout(() => playAudio('single'), 500); 
   }
 }
 
 function playAudio(type) {
   const t = trials[cursor];
   if (!t) return;
-  let folder = t.stage <= 2 ? "EMO_PRACT_rvb_Norm" : (t.stage === 3 ? "EMO_137_Norm" : "EMO_STIM_rvb_Norm");
+
+  // 새로운 폴더 구조 적용
+  let folder = "EMO_before_and_after_noise/";
+  if (t.stage <= 2) {
+      folder += "EMO_PRACT_Norm";
+  } else if (t.stage === 3) {
+      folder += "EMO_137_Norm";
+  } else if (t.stage === 4) {
+      folder += "EMO_STIM_Norm";
+  }
+
   let file = (type === 'A') ? t.stim_A : (type === 'B' ? t.stim_B : t.stim);
   
   const audio = new Audio(`./stimuli/${folder}/${file}`);
-  audio.play().catch(e => console.log("Autoplay prevented or error:", e));
+  audio.play().catch(e => console.log("Autoplay error:", e));
   
   played[type].push(Math.round(performance.now() - t0));
 }
 
-async function submitData() {
-  const t = trials[cursor];
-  const payload = {
-    participant_id: participantId, trial_index: cursor + 1, stage: t.stage, block: t.block,
-    stim_A: t.stim_A || "", stim_B: t.stim_B || "", stim: t.stim || "",
-    question: t.question, response: pendingChoice,
-    rt_ms: Math.round(performance.now() - t0), played_log: JSON.stringify(played)
-  };
-  fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
-  cursor++;
-  loadTrial();
-}
+// Resume 버튼 클릭 시
+document.getElementById("resumeBtn").onclick = () => {
+    cursor++; 
+    loadTrial();
+};
 
 document.getElementById("playA").onclick = () => playAudio('A');
 document.getElementById("playB").onclick = () => playAudio('B');
@@ -233,6 +333,24 @@ document.querySelectorAll(".choice2, .choice5").forEach(btn => {
     document.getElementById("nextBtn").disabled = false;
   };
 });
+
+async function submitData() {
+  const t = trials[cursor];
+  const payload = {
+    participant_id: participantId, 
+    trial_index: cursor + 1, 
+    stage: t.stage, 
+    block: t.block,
+    stim_A: t.stim_A || "", stim_B: t.stim_B || "", stim: t.stim || "",
+    question: t.question, response: pendingChoice,
+    rt_ms: Math.round(performance.now() - t0), played_log: JSON.stringify(played)
+  };
+  
+  fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
+  
+  cursor++;
+  loadTrial();
+}
 
 document.getElementById("nextBtn").onclick = submitData;
 window.onload = () => { trials = buildExperiment(); loadTrial(); };
