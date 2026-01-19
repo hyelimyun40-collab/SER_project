@@ -67,9 +67,9 @@
     </div>
 
     <div id="breakPanel" class="panel hidden">
-        <h2 style="color: #28a745;">☕ Break Time</h2>
+        <h2 style="color: #28a745;">Break Time</h2>
         <div id="breakMsg">
-            Stage 완료! 수고하셨습니다.<br>
+            수고하셨습니다.<br>
             잠시 눈을 붙이고 편안하게 휴식을 취해주세요.<br><br>
             준비가 되시면 아래 버튼을 눌러 다음 단계로 진행하세요.
         </div>
@@ -115,7 +115,7 @@
 <script>
 // ================= CONFIGURATION =================
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxUijkRPCjY4CL0Y6UkoJ6E7JtJ3IY3R1--iAdOdPCHCTH85_gQmeWPgskUcOy8EUxn/exec"; 
-const NOISE_LEVELS = ["06", "09", "12"]; // 노이즈 데시벨 목록
+const NOISE_LEVELS = ["09", "12", "15"]; // 노이즈 데시벨 목록
 // ===============================================
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -133,8 +133,8 @@ const emoFullNames = {
 };
 
 // [수정됨] 노이즈 파일명 생성기
-// 예: dB="06", original="sad_F137.wav" -> "bb_06sad_F137_Norm.wav"
-// 예: dB="06", original="sad_F137_rvb.wav" -> "bb_06sad_F137_rvb_Norm.wav"
+// 예: dB="09", original="sad_F137.wav" -> "bb_09sad_F137_Norm.wav"
+// 예: dB="09", original="sad_F137_rvb.wav" -> "bb_09sad_F137_rvb_Norm.wav"
 function makeNoiseFile(dB, originalFilename) {
     const nameWithoutExt = originalFilename.replace('.wav', '');
     return `bb_${dB}${nameWithoutExt}_Norm.wav`;
