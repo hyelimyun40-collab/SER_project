@@ -12,12 +12,15 @@
     .panel { margin: 20px 0; }
     .btnrow { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
     #question { margin: 30px 0; font-size: 1.3rem; color: #000000; font-weight: 800; }
-    #nextBtn, #resumeBtn { padding: 8px 30px; font-size: 15px; min-width: 120px; cursor: pointer; }
+    #nextBtn, #resumeBtn, #startStageBtn { padding: 8px 30px; font-size: 15px; min-width: 120px; cursor: pointer; }
     .row5 { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0; }
     .selected { background-color: #007bff !important; color: white; }
     #progress { font-weight: bold; color: #444; margin-bottom: 10px; }
-    #breakMsg { font-size: 1.2rem; line-height: 1.6; color: #333; margin-bottom: 30px; white-space: pre-line; }
+    #breakMsg, #instructionMsg { font-size: 1.2rem; line-height: 1.6; color: #333; margin-bottom: 30px; white-space: pre-line; }
     .hidden { display: none; }
+    
+    /* 안내 문구 강조 스타일 */
+    .instr-title { color: #007bff; font-weight: bold; font-size: 1.5rem; margin-bottom: 20px; }
   </style>
 </head>
 <body>
@@ -35,6 +38,14 @@
         </div>
         <div class="btnrow">
             <button id="resumeBtn" class="primary" type="button">Resume Experiment</button>
+        </div>
+    </div>
+
+    <div id="instructionPanel" class="panel hidden">
+        <div id="instructionTitle" class="instr-title">Instruction</div>
+        <div id="instructionMsg"></div>
+        <div class="btnrow">
+            <button id="startStageBtn" class="primary" type="button">Start</button>
         </div>
     </div>
 
@@ -83,6 +94,7 @@ let cursor = 0;
 let t0 = null;
 let played = { A: [], B: [], single: [] };
 let pendingChoice = null;
+let currentAudio = null; // 현재 재생 중인 오디오 객체 저장용
 
 const emoFullNames = {
   "amu": "amused", "rel": "relieved", "sad": "sad",
@@ -114,6 +126,7 @@ function buildExperiment() {
               stage: 1, block: `2I2AFC_1_${dB}dB`,
               stim_A: swap ? makeNoiseFile(dB, item.b) : makeNoiseFile(dB, item.a),
               stim_B: swap ? makeNoiseFile(dB, item.a) : makeNoiseFile(dB, item.b),
+              t: item.t, // 질문 생성을 위해 저장
               question: `Which sounded more ${emoFullNames[item.t] || item.t}?`
           });
       });
@@ -125,6 +138,7 @@ function buildExperiment() {
               stage: 2, block: `2I2AFC_2_${dB}dB`,
               stim_A: swap ? makeNoiseFile(dB, `${base}_rvb.wav`) : makeNoiseFile(dB, `${base}.wav`),
               stim_B: swap ? makeNoiseFile(dB, `${base}.wav`) : makeNoiseFile(dB, `${base}_rvb.wav`),
+              emo: item.emo, // 질문 생성을 위해 저장
               question: `Which sounded more ${emoFullNames[item.emo] || item.emo}?`
           });
       });
@@ -138,61 +152,102 @@ function buildExperiment() {
       });
   });
 
+  // 안내 문구 객체 정의
+  const intro2AFC = {
+      type: 'instruction',
+      msg: "두 개의 소리(A, B)를 차례로 듣고,\n질문에 가장 적절한 답을 선택해주세요."
+  };
+
+  const intro5AFC = {
+      type: 'instruction',
+      msg: "들려주는 소리를 듣고,\n5가지 감정 중 가장 가깝다고 느껴지는 감정을 선택해주세요.\n(다시 들으려면 'Play stimulus' 버튼을 클릭하세요)"
+  };
+
   return [
-      ...shuffle(s1), {type: 'break'},
+      intro2AFC, ...shuffle(s1), {type: 'break'},
       ...shuffle(s2), {type: 'break'},
-      ...shuffle(s3), {type: 'break'},
+      intro5AFC, ...shuffle(s3), {type: 'break'},
       ...shuffle(s4)
   ];
 }
 
+// 오디오 중지 함수
+function stopAudio() {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+        currentAudio = null;
+    }
+}
+
 function loadTrial() {
+  stopAudio(); // 화면 전환 시 소리 끔
+
   if (cursor >= trials.length) { window.location.href = "./done.html"; return; }
   const t = trials[cursor];
   played = { A: [], B: [], single: [] };
   pendingChoice = null;
   t0 = performance.now();
 
+  // 모든 패널 숨김
   document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
+  document.getElementById("nextRow").classList.add("hidden");
+  document.getElementById("question").textContent = "";
+
+  // 1. 휴식 화면
   if (t.type === 'break') {
       document.getElementById("progress").textContent = "Break";
-      document.getElementById("question").textContent = "";
-      document.getElementById("nextRow").classList.add("hidden");
       document.getElementById("breakPanel").classList.remove("hidden");
       return; 
   }
 
+  // 2. 안내 화면 (Instruction)
+  if (t.type === 'instruction') {
+      document.getElementById("progress").textContent = "Instruction";
+      document.getElementById("instructionMsg").textContent = t.msg;
+      document.getElementById("instructionPanel").classList.remove("hidden");
+      return;
+  }
+
+  // 3. 실제 실험 화면
   document.getElementById("nextRow").classList.remove("hidden");
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
   
-  const currentStageTrials = trials.filter(tr => tr.stage === t.stage && tr.type !== 'break');
+  const currentStageTrials = trials.filter(tr => tr.stage === t.stage && tr.type !== 'break' && tr.type !== 'instruction');
   const currentIdxInStage = currentStageTrials.indexOf(t) + 1;
   document.getElementById("progress").textContent = `Stage ${t.stage} | ${currentIdxInStage} / ${currentStageTrials.length}`;
   document.getElementById("question").textContent = t.question;
   document.getElementById(t.stim_A ? "two" : "one").classList.remove("hidden");
 
+  // Stage 3, 4 자동 재생 (Stage 1, 2는 버튼 눌러서 듣기)
   if (!t.stim_A) setTimeout(() => playAudio('single'), 500);
 }
 
 function playAudio(type) {
+  stopAudio(); // 재생 전 기존 소리 끔
+
   const t = trials[cursor];
   if (!t) return;
 
-  // [수정 핵심] stimuli 바로 아래 폴더 경로 지정
   let folder = "";
   if (t.stage <= 2) folder = "EMO_PRACT_rvb_Norm_final";
   else if (t.stage === 3) folder = "EMO_137_Norm_final";
   else if (t.stage === 4) folder = "EMO_STIM_rvb_Norm_final";
 
   let file = (type === 'A') ? t.stim_A : (type === 'B' ? t.stim_B : t.stim);
-  const audio = new Audio(`./stimuli/${folder}/${file}`);
-  audio.play().catch(e => console.error("Audio Play Error:", e));
+  
+  // Audio 객체 생성 및 재생
+  currentAudio = new Audio(`./stimuli/${folder}/${file}`);
+  currentAudio.play().catch(e => console.error("Audio Play Error:", e));
   
   played[type].push(Math.round(performance.now() - t0));
 }
 
+// 이벤트 리스너 연결
 document.getElementById("resumeBtn").onclick = () => { cursor++; loadTrial(); };
+document.getElementById("startStageBtn").onclick = () => { cursor++; loadTrial(); }; // 안내문구의 Start 버튼
+
 document.getElementById("playA").onclick = () => playAudio('A');
 document.getElementById("playB").onclick = () => playAudio('B');
 document.getElementById("playOne").onclick = () => playAudio('single');
@@ -207,16 +262,23 @@ document.querySelectorAll(".choice2, .choice5").forEach(btn => {
 });
 
 document.getElementById("nextBtn").onclick = () => {
+  stopAudio(); // Next 누르면 소리 끔
   const t = trials[cursor];
+
+  // [수정됨] 구글 시트에 기록할 페이로드 상세화
   const payload = {
     participant_id: participantId,
     stage: t.stage,
     block: t.block,
-    response: pendingChoice,
-    stim: t.stim || `${t.stim_A}/${t.stim_B}`,
+    question: t.question,          // 질문 내용
+    stim_A: t.stim_A || "",        // A 자극 파일명 (2AFC용)
+    stim_B: t.stim_B || "",        // B 자극 파일명 (2AFC용)
+    stim: t.stim || "",            // 단일 자극 파일명 (5AFC용)
+    response: pendingChoice,       // 응답
     rt_ms: Math.round(performance.now() - t0),
     played_log: JSON.stringify(played)
   };
+
   fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
   cursor++; 
   loadTrial();
