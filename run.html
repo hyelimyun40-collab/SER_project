@@ -7,57 +7,17 @@
   <link rel="stylesheet" href="./static/style.css"/>
   <script src="./stimuli_list.js"></script>
   <style>
-    body { 
-      display: flex; 
-      justify-content: center; 
-      align-items: center; 
-      min-height: 100vh; 
-      margin: 0; 
-      background-color: #f5f5f5;
-    }
-    .card { 
-      text-align: center; 
-      width: 100%; 
-      max-width: 600px; 
-      padding: 30px;
-      background: white;
-      border-radius: 12px;
-      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-    }
+    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f5f5f5; }
+    .card { text-align: center; width: 100%; max-width: 600px; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
     .panel { margin: 20px 0; }
     .btnrow { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
-    
-    #question { 
-      margin: 30px 0; 
-      font-size: 1.3rem; 
-      color: #000000; 
-      font-weight: 800; 
-    }
-    
-    #nextBtn, #resumeBtn {
-      padding: 8px 30px;
-      font-size: 15px;
-      min-width: 120px;
-      cursor: pointer;
-    }
-    
-    .row5 { 
-      display: flex; 
-      flex-wrap: wrap; 
-      justify-content: center; 
-      gap: 10px; 
-      margin: 20px 0; 
-    }
+    #question { margin: 30px 0; font-size: 1.3rem; color: #000000; font-weight: 800; }
+    #nextBtn, #resumeBtn { padding: 8px 30px; font-size: 15px; min-width: 120px; cursor: pointer; }
+    .row5 { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0; }
     .selected { background-color: #007bff !important; color: white; }
     #progress { font-weight: bold; color: #444; margin-bottom: 10px; }
-
-    #breakMsg {
-        font-size: 1.2rem;
-        line-height: 1.6;
-        color: #333;
-        margin-bottom: 30px;
-        white-space: pre-line;
-    }
+    #breakMsg { font-size: 1.2rem; line-height: 1.6; color: #333; margin-bottom: 30px; white-space: pre-line; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -67,7 +27,7 @@
     </div>
 
     <div id="breakPanel" class="panel hidden">
-        <h2 style="color: #28a745;">Break Time</h2>
+        <h2 style="color: #28a745;">☕ Break Time</h2>
         <div id="breakMsg">
             수고하셨습니다.<br>
             잠시 눈을 붙이고 편안하게 휴식을 취해주세요.<br><br>
@@ -104,18 +64,15 @@
       </div>
     </div>
 
-    <div class="btnrow" id="nextRow" style="margin-top: 30px;">
+    <div class="btnrow" id="nextRow">
       <button id="nextBtn" type="button" class="primary" disabled>Next</button>
     </div>
-    <p class="hint" id="hintText" style="font-size: 0.85rem; color: #999; margin-top: 20px;">
-      답변을 선택한 후 Next를 클릭하세요.
-    </p>
   </div>
 
 <script>
 // ================= CONFIGURATION =================
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxUijkRPCjY4CL0Y6UkoJ6E7JtJ3IY3R1--iAdOdPCHCTH85_gQmeWPgskUcOy8EUxn/exec"; 
-const NOISE_LEVELS = ["09", "12", "15"]; // 노이즈 데시벨 목록
+const NOISE_LEVELS = ["09", "12", "15"]; 
 // ===============================================
 
 const urlParams = new URLSearchParams(window.location.search);
@@ -132,9 +89,7 @@ const emoFullNames = {
   "ang": "angry", "fear": "fearful", "surp": "surprised", "sur": "surprised"
 };
 
-// [수정됨] 노이즈 파일명 생성기
-// 예: dB="09", original="sad_F137.wav" -> "bb_09sad_F137_Norm.wav"
-// 예: dB="09", original="sad_F137_rvb.wav" -> "bb_09sad_F137_rvb_Norm.wav"
+// 노이즈 파일명 생성 규칙 적용
 function makeNoiseFile(dB, originalFilename) {
     const nameWithoutExt = originalFilename.replace('.wav', '');
     return `bb_${dB}${nameWithoutExt}_Norm.wav`;
@@ -149,148 +104,90 @@ function shuffle(array) {
 }
 
 function buildExperiment() {
-  let stage1 = [], stage2 = [], stage3 = [], stage4 = [];
+  let s1 = [], s2 = [], s3 = [], s4 = [];
 
-  // --- Stage 1 ---
-  let basePairs = [...PAIRS_DISCRIMINATION]; 
   NOISE_LEVELS.forEach(dB => {
-      basePairs.forEach(item => {
+      // Stage 1
+      PAIRS_DISCRIMINATION.forEach(item => {
           const swap = Math.random() < 0.5;
-          const fullEmo = emoFullNames[item.t] || item.t;
-          
-          let fileA = makeNoiseFile(dB, item.a);
-          let fileB = makeNoiseFile(dB, item.b);
-
-          stage1.push({
-              stage: 1,
-              block: `2I2AFC_1_${dB}dB`,
-              stim_A: swap ? fileB : fileA,
-              stim_B: swap ? fileA : fileB,
-              t: item.t,
-              question: `Which sounded more ${fullEmo}?`
+          s1.push({
+              stage: 1, block: `2I2AFC_1_${dB}dB`,
+              stim_A: swap ? makeNoiseFile(dB, item.b) : makeNoiseFile(dB, item.a),
+              stim_B: swap ? makeNoiseFile(dB, item.a) : makeNoiseFile(dB, item.b),
+              question: `Which sounded more ${emoFullNames[item.t] || item.t}?`
           });
       });
-  });
-
-  // --- Stage 2 ---
-  let baseTargets = [...TARGETS_DRY_RVB]; 
-  NOISE_LEVELS.forEach(dB => {
-      baseTargets.forEach(item => {
+      // Stage 2
+      TARGETS_DRY_RVB.forEach(item => {
           const base = `${item.emo}_${item.sex}${item.utt}`;
-          const fullEmo = emoFullNames[item.emo] || item.emo;
           const swap = Math.random() < 0.5;
-          
-          let fileDry = makeNoiseFile(dB, `${base}.wav`);
-          let fileRvb = makeNoiseFile(dB, `${base}_rvb.wav`);
-
-          stage2.push({
-              stage: 2,
-              block: `2I2AFC_2_${dB}dB`,
-              stim_A: swap ? fileRvb : fileDry,
-              stim_B: swap ? fileDry : fileRvb,
-              emo: item.emo,
-              question: `Which sounded more ${fullEmo}?`
+          s2.push({
+              stage: 2, block: `2I2AFC_2_${dB}dB`,
+              stim_A: swap ? makeNoiseFile(dB, `${base}_rvb.wav`) : makeNoiseFile(dB, `${base}.wav`),
+              stim_B: swap ? makeNoiseFile(dB, `${base}.wav`) : makeNoiseFile(dB, `${base}_rvb.wav`),
+              question: `Which sounded more ${emoFullNames[item.emo] || item.emo}?`
           });
       });
-  });
-
-  // --- Stage 3 ---
-  let practiceFiles = [...FILES_PRACTICE_5AFC].slice(0, 10); 
-  NOISE_LEVELS.forEach(dB => {
-      practiceFiles.forEach(fn => {
-          stage3.push({ 
-              stage: 3, 
-              block: `5AFC_practice_${dB}dB`, 
-              stim: makeNoiseFile(dB, fn), 
-              question: "Which emotion is being expressed?" 
-          });
+      // Stage 3
+      FILES_PRACTICE_5AFC.slice(0, 10).forEach(fn => {
+          s3.push({ stage: 3, block: `5AFC_practice_${dB}dB`, stim: makeNoiseFile(dB, fn), question: "Which emotion is being expressed?" });
+      });
+      // Stage 4
+      FILES_TEST_5AFC.forEach(fn => {
+          s4.push({ stage: 4, block: `5AFC_test_${dB}dB`, stim: makeNoiseFile(dB, fn), question: "Which emotion is being expressed?" });
       });
   });
-
-  // --- Stage 4 ---
-  let testFiles = [...FILES_TEST_5AFC];
-  NOISE_LEVELS.forEach(dB => {
-      testFiles.forEach(fn => {
-          stage4.push({ 
-              stage: 4, 
-              block: `5AFC_test_${dB}dB`, 
-              stim: makeNoiseFile(dB, fn), 
-              question: "Which emotion is being expressed?" 
-          });
-      });
-  });
-
-  shuffle(stage1);
-  shuffle(stage2);
-  shuffle(stage3);
-  shuffle(stage4);
 
   return [
-      ...stage1, { type: 'break' },
-      ...stage2, { type: 'break' },
-      ...stage3, { type: 'break' },
-      ...stage4
+      ...shuffle(s1), {type: 'break'},
+      ...shuffle(s2), {type: 'break'},
+      ...shuffle(s3), {type: 'break'},
+      ...shuffle(s4)
   ];
 }
 
 function loadTrial() {
   if (cursor >= trials.length) { window.location.href = "./done.html"; return; }
-  
   const t = trials[cursor];
   played = { A: [], B: [], single: [] };
   pendingChoice = null;
   t0 = performance.now();
 
-  document.getElementById("breakPanel").classList.add("hidden");
-  document.getElementById("two").classList.add("hidden");
-  document.getElementById("one").classList.add("hidden");
-  document.getElementById("question").style.display = "block";
-  document.getElementById("nextRow").style.display = "flex";
-  document.getElementById("hintText").style.display = "block";
-
+  document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
   if (t.type === 'break') {
       document.getElementById("progress").textContent = "Break";
-      document.getElementById("question").style.display = "none";
-      document.getElementById("nextRow").style.display = "none";
-      document.getElementById("hintText").style.display = "none";
+      document.getElementById("question").textContent = "";
+      document.getElementById("nextRow").classList.add("hidden");
       document.getElementById("breakPanel").classList.remove("hidden");
       return; 
   }
 
+  document.getElementById("nextRow").classList.remove("hidden");
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
-
+  
   const currentStageTrials = trials.filter(tr => tr.stage === t.stage && tr.type !== 'break');
   const currentIdxInStage = currentStageTrials.indexOf(t) + 1;
   document.getElementById("progress").textContent = `Stage ${t.stage} | ${currentIdxInStage} / ${currentStageTrials.length}`;
   document.getElementById("question").textContent = t.question;
+  document.getElementById(t.stim_A ? "two" : "one").classList.remove("hidden");
 
-  if (t.stim_A) {
-    document.getElementById("two").classList.remove("hidden");
-  } else {
-    document.getElementById("one").classList.remove("hidden");
-    setTimeout(() => playAudio('single'), 500); 
-  }
+  if (!t.stim_A) setTimeout(() => playAudio('single'), 500);
 }
 
 function playAudio(type) {
   const t = trials[cursor];
   if (!t) return;
 
-  // [수정됨] 폴더 경로 업데이트
-  let folder = "EMO_before_and_after_noise/";
-  if (t.stage <= 2) {
-      folder += "EMO_PRACT_rvb_Norm"; // Stage 1, 2
-  } else if (t.stage === 3) {
-      folder += "EMO_137_Norm";       // Stage 3
-  } else if (t.stage === 4) {
-      folder += "EMO_STIM_rvb_Norm";  // Stage 4
-  }
+  // [수정 핵심] stimuli 바로 아래 폴더 경로 지정
+  let folder = "";
+  if (t.stage <= 2) folder = "EMO_PRACT_rvb_Norm_final";
+  else if (t.stage === 3) folder = "EMO_137_Norm_final";
+  else if (t.stage === 4) folder = "EMO_STIM_rvb_Norm_final";
 
   let file = (type === 'A') ? t.stim_A : (type === 'B' ? t.stim_B : t.stim);
-  
   const audio = new Audio(`./stimuli/${folder}/${file}`);
-  audio.play().catch(e => console.log("Autoplay error (Check folder/filename):", e));
+  audio.play().catch(e => console.error("Audio Play Error:", e));
   
   played[type].push(Math.round(performance.now() - t0));
 }
@@ -301,33 +198,30 @@ document.getElementById("playB").onclick = () => playAudio('B');
 document.getElementById("playOne").onclick = () => playAudio('single');
 
 document.querySelectorAll(".choice2, .choice5").forEach(btn => {
-  btn.onclick = (e) => {
-    const parent = btn.closest('.panel');
-    parent.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
+  btn.onclick = () => {
+    btn.closest('.panel').querySelectorAll("button").forEach(b => b.classList.remove("selected"));
     btn.classList.add("selected");
     pendingChoice = btn.dataset.choice;
     document.getElementById("nextBtn").disabled = false;
   };
 });
 
-async function submitData() {
+document.getElementById("nextBtn").onclick = () => {
   const t = trials[cursor];
   const payload = {
-    participant_id: participantId, 
-    trial_index: cursor + 1, 
-    stage: t.stage, 
+    participant_id: participantId,
+    stage: t.stage,
     block: t.block,
-    stim_A: t.stim_A || "", stim_B: t.stim_B || "", stim: t.stim || "",
-    question: t.question, response: pendingChoice,
-    rt_ms: Math.round(performance.now() - t0), played_log: JSON.stringify(played)
+    response: pendingChoice,
+    stim: t.stim || `${t.stim_A}/${t.stim_B}`,
+    rt_ms: Math.round(performance.now() - t0),
+    played_log: JSON.stringify(played)
   };
-  
   fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
-  cursor++;
+  cursor++; 
   loadTrial();
-}
+};
 
-document.getElementById("nextBtn").onclick = submitData;
 window.onload = () => { trials = buildExperiment(); loadTrial(); };
 </script>
 </body>
