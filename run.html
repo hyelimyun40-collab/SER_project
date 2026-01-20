@@ -262,19 +262,25 @@ document.querySelectorAll(".choice2, .choice5").forEach(btn => {
 });
 
 document.getElementById("nextBtn").onclick = () => {
-  stopAudio(); // Next 누르면 소리 끔
+  stopAudio();
   const t = trials[cursor];
 
-  // [수정됨] 구글 시트에 기록할 페이로드 상세화
+  // 블록 명칭에서 노이즈 수치만 추출 (예: "5AFC_test_09dB" -> "09")
+  const noiseMatch = t.block.match(/\d+/);
+  const noiseLevel = noiseMatch ? noiseMatch[0] : "";
+
   const payload = {
     participant_id: participantId,
+    global_index: cursor + 1,      // 전체 중 몇 번째인지
     stage: t.stage,
     block: t.block,
-    question: t.question,          // 질문 내용
-    stim_A: t.stim_A || "",        // A 자극 파일명 (2AFC용)
-    stim_B: t.stim_B || "",        // B 자극 파일명 (2AFC용)
-    stim: t.stim || "",            // 단일 자극 파일명 (5AFC용)
-    response: pendingChoice,       // 응답
+    noise_db: noiseLevel,          // 노이즈 레벨 별도 기록
+    question: t.question,
+    stim_A: t.stim_A || "",
+    stim_B: t.stim_B || "",
+    stim: t.stim || "",
+    target: t.t || t.emo || "",    // 실제 정답 감정 (PAIRS나 TARGETS 데이터에서 가져옴)
+    response: pendingChoice,
     rt_ms: Math.round(performance.now() - t0),
     played_log: JSON.stringify(played)
   };
