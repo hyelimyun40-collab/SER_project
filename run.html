@@ -12,79 +12,61 @@
     .panel { margin: 20px 0; }
     .btnrow { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
     #question { margin: 30px 0; font-size: 1.3rem; color: #000000; font-weight: 800; }
-    #nextBtn, #resumeBtn, #startStageBtn { padding: 8px 30px; font-size: 15px; min-width: 120px; cursor: pointer; }
+    #nextBtn, #resumeBtn, #startStageBtn { padding: 12px 30px; font-size: 15px; min-width: 120px; cursor: pointer; border-radius: 8px; border: none; }
+    .primary { background-color: #007bff; color: white; }
     .row5 { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0; }
-    .selected { background-color: #007bff !important; color: white; }
+    .choice5 { padding: 15px; font-size: 1rem; cursor: pointer; transition: 0.2s; border: 1px solid #ddd; border-radius: 8px; background: #fff; flex: 1 1 120px; }
+    .choice5:hover { background: #f8f9fa; }
+    .selected { background-color: #007bff !important; color: white; border-color: #007bff; }
     #progress { font-weight: bold; color: #444; margin-bottom: 10px; }
     #breakMsg, #instructionMsg { font-size: 1.2rem; line-height: 1.6; color: #333; margin-bottom: 30px; white-space: pre-line; }
     .hidden { display: none; }
-    
-    /* 안내 문구 강조 스타일 */
     .instr-title { color: #007bff; font-weight: bold; font-size: 1.5rem; margin-bottom: 20px; }
   </style>
 </head>
 <body>
   <div class="card" id="app">
-    <div class="toprow">
-      <div id="progress">Loading...</div>
-    </div>
+    <div class="toprow"><div id="progress">Loading...</div></div>
 
     <div id="breakPanel" class="panel hidden">
-        <h2 style="color: #28a745;"></h2>
-        <div id="breakMsg">
-            수고하셨습니다.<br>
-            잠시 편안하게 휴식을 취해주세요.<br><br>
-            준비가 되시면 아래 버튼을 눌러 다음 단계로 진행하세요.
-        </div>
-        <div class="btnrow">
-            <button id="resumeBtn" class="primary" type="button">Resume Experiment</button>
-        </div>
+        <h2 style="color: #28a745;">☕ Break Time</h2>
+        <div id="breakMsg">수고하셨습니다.<br>잠시 눈을 붙이고 편안하게 휴식을 취해주세요.<br><br>준비가 되시면 아래 버튼을 눌러 진행하세요.</div>
+        <div class="btnrow"><button id="resumeBtn" class="primary">Resume Experiment</button></div>
     </div>
 
     <div id="instructionPanel" class="panel hidden">
         <div id="instructionTitle" class="instr-title">Instruction</div>
         <div id="instructionMsg"></div>
-        <div class="btnrow">
-            <button id="startStageBtn" class="primary" type="button">Start</button>
-        </div>
+        <div class="btnrow"><button id="startStageBtn" class="primary">Start</button></div>
     </div>
 
     <h2 id="question"></h2>
 
     <div id="two" class="panel hidden">
+      <div class="btnrow"><button id="playA">Play A</button><button id="playB">Play B</button></div>
       <div class="btnrow">
-        <button id="playA" type="button">Play A</button>
-        <button id="playB" type="button">Play B</button>
-      </div>
-      <div class="btnrow">
-        <button class="choice2" data-choice="A" type="button">Choose A</button>
-        <button class="choice2" data-choice="B" type="button">Choose B</button>
+        <button class="choice2" data-choice="A">Choose A</button>
+        <button class="choice2" data-choice="B">Choose B</button>
       </div>
     </div>
 
     <div id="one" class="panel hidden">
-      <div class="btnrow">
-        <button id="playOne" type="button">Play stimulus</button>
-      </div>
+      <div class="btnrow"><button id="playOne">Play stimulus</button></div>
       <div class="row5">
-        <button class="choice5" data-choice="Amusement" type="button">Amusement</button>
-        <button class="choice5" data-choice="Anger" type="button">Anger</button>
-        <button class="choice5" data-choice="Sadness" type="button">Sadness</button>
-        <button class="choice5" data-choice="Fear" type="button">Fear</button>
-        <button class="choice5" data-choice="Surprise" type="button">Surprise</button>
+        <button class="choice5" data-choice="Amusement">😆 Amusement</button>
+        <button class="choice5" data-choice="Anger">💢 Anger</button>
+        <button class="choice5" data-choice="Sadness">😢 Sadness</button>
+        <button class="choice5" data-choice="Fear">😨 Fear</button>
+        <button class="choice5" data-choice="Surprise">😲 Surprise</button>
       </div>
     </div>
 
-    <div class="btnrow" id="nextRow">
-      <button id="nextBtn" type="button" class="primary" disabled>Next</button>
-    </div>
+    <div class="btnrow" id="nextRow"><button id="nextBtn" class="primary" disabled>Next</button></div>
   </div>
 
 <script>
-// ================= CONFIGURATION =================
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxUijkRPCjY4CL0Y6UkoJ6E7JtJ3IY3R1--iAdOdPCHCTH85_gQmeWPgskUcOy8EUxn/exec"; 
 const NOISE_LEVELS = ["09", "12", "15"]; 
-// ===============================================
 
 const urlParams = new URLSearchParams(window.location.search);
 const participantId = urlParams.get('participant_id') || "anon";
@@ -94,17 +76,12 @@ let cursor = 0;
 let t0 = null;
 let played = { A: [], B: [], single: [] };
 let pendingChoice = null;
-let currentAudio = null; // 현재 재생 중인 오디오 객체 저장용
+let currentAudio = null;
 
-const emoFullNames = {
-  "amu": "amused", "rel": "relieved", "sad": "sad",
-  "ang": "angry", "fear": "fearful", "surp": "surprised", "sur": "surprised"
-};
+const emoFullNames = { "amu": "amused", "rel": "relieved", "sad": "sad", "ang": "angry", "fear": "fearful", "surp": "surprised", "sur": "surprised" };
 
-// 노이즈 파일명 생성 규칙 적용
 function makeNoiseFile(dB, originalFilename) {
-    const nameWithoutExt = originalFilename.replace('.wav', '');
-    return `bb_${dB}${nameWithoutExt}_Norm.wav`;
+    return `bb_${dB}${originalFilename.replace('.wav', '')}_Norm.wav`;
 }
 
 function shuffle(array) {
@@ -119,89 +96,55 @@ function buildExperiment() {
   let s1 = [], s2 = [], s3 = [], s4 = [];
 
   NOISE_LEVELS.forEach(dB => {
-      // Stage 1
       PAIRS_DISCRIMINATION.forEach(item => {
           const swap = Math.random() < 0.5;
-          s1.push({
-              stage: 1, block: `2I2AFC_1_${dB}dB`,
-              stim_A: swap ? makeNoiseFile(dB, item.b) : makeNoiseFile(dB, item.a),
-              stim_B: swap ? makeNoiseFile(dB, item.a) : makeNoiseFile(dB, item.b),
-              t: item.t, // 질문 생성을 위해 저장
-              question: `Which sounded more ${emoFullNames[item.t] || item.t}?`
-          });
+          s1.push({ stage: 1, block: `2I2AFC_1_${dB}dB`, stim_A: swap ? makeNoiseFile(dB, item.b) : makeNoiseFile(dB, item.a), stim_B: swap ? makeNoiseFile(dB, item.a) : makeNoiseFile(dB, item.b), t: item.t, question: `Which sounded more ${emoFullNames[item.t] || item.t}?` });
       });
-      // Stage 2
       TARGETS_DRY_RVB.forEach(item => {
           const base = `${item.emo}_${item.sex}${item.utt}`;
           const swap = Math.random() < 0.5;
-          s2.push({
-              stage: 2, block: `2I2AFC_2_${dB}dB`,
-              stim_A: swap ? makeNoiseFile(dB, `${base}_rvb.wav`) : makeNoiseFile(dB, `${base}.wav`),
-              stim_B: swap ? makeNoiseFile(dB, `${base}.wav`) : makeNoiseFile(dB, `${base}_rvb.wav`),
-              emo: item.emo, // 질문 생성을 위해 저장
-              question: `Which sounded more ${emoFullNames[item.emo] || item.emo}?`
-          });
+          s2.push({ stage: 2, block: `2I2AFC_2_${dB}dB`, stim_A: swap ? makeNoiseFile(dB, `${base}_rvb.wav`) : makeNoiseFile(dB, `${base}.wav`), stim_B: swap ? makeNoiseFile(dB, `${base}.wav`) : makeNoiseFile(dB, `${base}_rvb.wav`), emo: item.emo, question: `Which sounded more ${emoFullNames[item.emo] || item.emo}?` });
       });
-      // Stage 3
-      FILES_PRACTICE_5AFC.slice(0, 10).forEach(fn => {
-          s3.push({ stage: 3, block: `5AFC_practice_${dB}dB`, stim: makeNoiseFile(dB, fn), question: "Which emotion is being expressed?" });
-      });
-      // Stage 4
-      FILES_TEST_5AFC.forEach(fn => {
-          s4.push({ stage: 4, block: `5AFC_test_${dB}dB`, stim: makeNoiseFile(dB, fn), question: "Which emotion is being expressed?" });
-      });
+      FILES_PRACTICE_5AFC.slice(0, 10).forEach(fn => { s3.push({ stage: 3, block: `5AFC_practice_${dB}dB`, stim: makeNoiseFile(dB, fn), question: "Which emotion is being expressed?" }); });
+      FILES_TEST_5AFC.forEach(fn => { s4.push({ stage: 4, block: `5AFC_test_${dB}dB`, stim: makeNoiseFile(dB, fn), question: "Which emotion is being expressed?" }); });
   });
 
-  // 안내 문구 객체 정의
-  const intro2AFC = {
-      type: 'instruction',
-      msg: "두 개의 소리(A, B)를 차례로 듣고,\n질문에 가장 적절한 답을 선택해주세요."
-  };
+  const intro2AFC = { type: 'instruction', msg: "두 개의 소리(A, B)를 차례로 듣고,\n질문에 가장 적절한 답을 선택해주세요." };
+  const intro5AFC = { type: 'instruction', msg: "들려주는 소리를 듣고,\n5가지 감정 중 가장 가깝다고 느껴지는 감정을 선택해주세요.\n(다시 들으려면 'Play stimulus' 버튼을 클릭하세요)" };
 
-  const intro5AFC = {
-      type: 'instruction',
-      msg: "들려주는 소리를 듣고,\n5가지 감정 중 가장 가깝다고 느껴지는 감정을 선택해주세요.\n(다시 들으려면 'Play stimulus' 버튼을 클릭하세요)"
-  };
+  // Stage 4 쪼개기 (180개를 45개씩)
+  shuffle(s4);
+  let s4_parts = [];
+  for (let i = 0; i < s4.length; i += 45) {
+      s4_parts.push(...s4.slice(i, i + 45));
+      if (i + 45 < s4.length) s4_parts.push({ type: 'break' }); // 마지막 조각 뒤에는 break 제외
+  }
 
   return [
       intro2AFC, ...shuffle(s1), {type: 'break'},
       ...shuffle(s2), {type: 'break'},
       intro5AFC, ...shuffle(s3), {type: 'break'},
-      ...shuffle(s4)
+      ...s4_parts
   ];
 }
 
-// 오디오 중지 함수
-function stopAudio() {
-    if (currentAudio) {
-        currentAudio.pause();
-        currentAudio.currentTime = 0;
-        currentAudio = null;
-    }
-}
+function stopAudio() { if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; } }
 
 function loadTrial() {
-  stopAudio(); // 화면 전환 시 소리 끔
-
+  stopAudio();
   if (cursor >= trials.length) { window.location.href = "./done.html"; return; }
   const t = trials[cursor];
-  played = { A: [], B: [], single: [] };
-  pendingChoice = null;
-  t0 = performance.now();
+  played = { A: [], B: [], single: [] }; pendingChoice = null; t0 = performance.now();
 
-  // 모든 패널 숨김
   document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
   document.getElementById("nextRow").classList.add("hidden");
   document.getElementById("question").textContent = "";
 
-  // 1. 휴식 화면
   if (t.type === 'break') {
       document.getElementById("progress").textContent = "Break";
       document.getElementById("breakPanel").classList.remove("hidden");
       return; 
   }
-
-  // 2. 안내 화면 (Instruction)
   if (t.type === 'instruction') {
       document.getElementById("progress").textContent = "Instruction";
       document.getElementById("instructionMsg").textContent = t.msg;
@@ -209,49 +152,32 @@ function loadTrial() {
       return;
   }
 
-  // 3. 실제 실험 화면
   document.getElementById("nextRow").classList.remove("hidden");
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
   
-  const currentStageTrials = trials.filter(tr => tr.stage === t.stage && tr.type !== 'break' && tr.type !== 'instruction');
-  const currentIdxInStage = currentStageTrials.indexOf(t) + 1;
-  document.getElementById("progress").textContent = `Stage ${t.stage} | ${currentIdxInStage} / ${currentStageTrials.length}`;
+  const stageTrials = trials.filter(tr => tr.stage === t.stage && tr.type !== 'break' && tr.type !== 'instruction');
+  document.getElementById("progress").textContent = `Stage ${t.stage} | ${stageTrials.indexOf(t) + 1} / ${stageTrials.length}`;
   document.getElementById("question").textContent = t.question;
   document.getElementById(t.stim_A ? "two" : "one").classList.remove("hidden");
-
-  // Stage 3, 4 자동 재생 (Stage 1, 2는 버튼 눌러서 듣기)
   if (!t.stim_A) setTimeout(() => playAudio('single'), 500);
 }
 
 function playAudio(type) {
-  stopAudio(); // 재생 전 기존 소리 끔
-
+  stopAudio();
   const t = trials[cursor];
-  if (!t) return;
-
-  let folder = "";
-  if (t.stage <= 2) folder = "EMO_PRACT_rvb_Norm_final";
-  else if (t.stage === 3) folder = "EMO_137_Norm_final";
-  else if (t.stage === 4) folder = "EMO_STIM_rvb_Norm_final";
-
+  let folder = t.stage <= 2 ? "EMO_PRACT_rvb_Norm_final" : (t.stage === 3 ? "EMO_137_Norm_final" : "EMO_STIM_rvb_Norm_final");
   let file = (type === 'A') ? t.stim_A : (type === 'B' ? t.stim_B : t.stim);
-  
-  // Audio 객체 생성 및 재생
   currentAudio = new Audio(`./stimuli/${folder}/${file}`);
-  currentAudio.play().catch(e => console.error("Audio Play Error:", e));
-  
+  currentAudio.play();
   played[type].push(Math.round(performance.now() - t0));
 }
 
-// 이벤트 리스너 연결
 document.getElementById("resumeBtn").onclick = () => { cursor++; loadTrial(); };
-document.getElementById("startStageBtn").onclick = () => { cursor++; loadTrial(); }; // 안내문구의 Start 버튼
-
+document.getElementById("startStageBtn").onclick = () => { cursor++; loadTrial(); };
 document.getElementById("playA").onclick = () => playAudio('A');
 document.getElementById("playB").onclick = () => playAudio('B');
 document.getElementById("playOne").onclick = () => playAudio('single');
-
 document.querySelectorAll(".choice2, .choice5").forEach(btn => {
   btn.onclick = () => {
     btn.closest('.panel').querySelectorAll("button").forEach(b => b.classList.remove("selected"));
@@ -264,30 +190,14 @@ document.querySelectorAll(".choice2, .choice5").forEach(btn => {
 document.getElementById("nextBtn").onclick = () => {
   stopAudio();
   const t = trials[cursor];
-
-  // 블록 명칭에서 노이즈 수치만 추출 (예: "5AFC_test_09dB" -> "09")
   const noiseMatch = t.block.match(/\d+/);
-  const noiseLevel = noiseMatch ? noiseMatch[0] : "";
-
   const payload = {
-    participant_id: participantId,
-    global_index: cursor + 1,      // 전체 중 몇 번째인지
-    stage: t.stage,
-    block: t.block,
-    noise_db: noiseLevel,          // 노이즈 레벨 별도 기록
-    question: t.question,
-    stim_A: t.stim_A || "",
-    stim_B: t.stim_B || "",
-    stim: t.stim || "",
-    target: t.t || t.emo || "",    // 실제 정답 감정 (PAIRS나 TARGETS 데이터에서 가져옴)
-    response: pendingChoice,
-    rt_ms: Math.round(performance.now() - t0),
-    played_log: JSON.stringify(played)
+    participant_id: participantId, global_index: cursor + 1, stage: t.stage, block: t.block, noise_db: noiseMatch ? noiseMatch[0] : "",
+    question: t.question, stim_A: t.stim_A || "", stim_B: t.stim_B || "", stim: t.stim || "",
+    target: t.t || t.emo || "", response: pendingChoice, rt_ms: Math.round(performance.now() - t0), played_log: JSON.stringify(played)
   };
-
   fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
-  cursor++; 
-  loadTrial();
+  cursor++; loadTrial();
 };
 
 window.onload = () => { trials = buildExperiment(); loadTrial(); };
