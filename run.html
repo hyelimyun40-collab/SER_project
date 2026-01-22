@@ -18,7 +18,7 @@
     .choice5 { padding: 15px; font-size: 1rem; cursor: pointer; transition: 0.2s; border: 1px solid #ddd; border-radius: 8px; background: #fff; flex: 1 1 120px; }
     .choice5:hover { background: #f8f9fa; }
     .selected { background-color: #007bff !important; color: white; border-color: #007bff; }
-    #progress { font-weight: bold; color: #444; margin-bottom: 10px; }
+    #progress { font-weight: bold; color: #444; margin-bottom: 10px; font-size: 1.1rem; }
     #breakMsg, #instructionMsg { font-size: 1.2rem; line-height: 1.6; color: #333; margin-bottom: 30px; white-space: pre-line; }
     .hidden { display: none; }
     .instr-title { color: #007bff; font-weight: bold; font-size: 1.5rem; margin-bottom: 20px; }
@@ -29,9 +29,9 @@
     <div class="toprow"><div id="progress">Loading...</div></div>
 
     <div id="breakPanel" class="panel hidden">
-        <h2 style="color: #28a745;"></h2>
-        <div id="breakMsg">수고하셨습니다.<br>잠시 휴식을 취한 후 Resume 버튼을 눌러주세요.</div>
-        <div class="btnrow"><button id="resumeBtn" class="primary">Resume Experiment</button></div>
+        <h2 style="color: #28a745;">☕ Break Time</h2>
+        <div id="breakMsg">수고하셨습니다.<br>잠시 휴식을 취한 후 버튼을 눌러주세요.</div>
+        <div class="btnrow"><button id="resumeBtn" class="primary">Resume</button></div>
     </div>
 
     <div id="instructionPanel" class="panel hidden">
@@ -112,29 +112,37 @@ function buildExperiment() {
   const intro2AFC = { type: 'instruction', msg: "두 개의 소리(A, B)를 차례로 듣고,\n질문에 가장 적절한 답을 선택해주세요." };
   const intro5AFC = { type: 'instruction', msg: "들려주는 소리를 듣고,\n5가지 감정 중 가장 가깝다고 느껴지는 감정을 선택해주세요.\n(다시 들으려면 'Play stimulus' 버튼을 클릭하세요)" };
 
+  // Stage 4 쪼개기 및 넘버링
   shuffle(s4);
-  let s4_parts = [];
-  for (let i = 0; i < s4.length; i += 45) {
-      s4_parts.push(...s4.slice(i, i + 45));
-      if (i + 45 < s4.length) s4_parts.push({ type: 'break' });
+  let s4_with_substages = [];
+  const chunkSize = 45;
+  for (let i = 0; i < s4.length; i += chunkSize) {
+      let subSection = s4.slice(i, i + chunkSize);
+      let subStageNum = (i / chunkSize) + 1;
+      subSection.forEach((t, idx) => {
+          t.sub_stage = `4-${subStageNum}`;
+          t.trial_in_sub = idx + 1;
+          t.total_in_sub = subSection.length;
+      });
+      s4_with_substages.push(...subSection);
+      if (i + chunkSize < s4.length) s4_with_substages.push({ type: 'break' });
   }
 
-  const allTrialsRaw = [
-      intro2AFC, ...shuffle(s1), {type: 'break'},
-      ...shuffle(s2), {type: 'break'},
-      intro5AFC, ...shuffle(s3), {type: 'break'},
-      ...s4_parts
-  ];
-
-  // [중요] 실제 문제들에만 시퀀스 번호(실험 번호) 매기기
-  let problemCount = 0;
-  return allTrialsRaw.map(t => {
-      if (t.stage) { // stage 정보가 있는 것은 실제 문제
-          problemCount++;
-          return { ...t, trial_number: problemCount };
-      }
-      return t;
+  // Stage 1, 2, 3에도 넘버링 정보 추가
+  [s1, s2, s3].forEach(stageArr => {
+      shuffle(stageArr);
+      stageArr.forEach((t, idx) => {
+          t.trial_in_sub = idx + 1;
+          t.total_in_sub = stageArr.length;
+      });
   });
+
+  return [
+      intro2AFC, ...s1, {type: 'break'},
+      ...s2, {type: 'break'},
+      intro5AFC, ...s3, {type: 'break'},
+      ...s4_with_substages
+  ];
 }
 
 function stopAudio() { if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; } }
@@ -163,9 +171,9 @@ function loadTrial() {
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
   
-  // 진행 바 표시: 전체 실험 번호 / 총 문제 수
-  const totalProblems = trials.filter(tr => tr.stage).length;
-  document.getElementById("progress").textContent = `Trial ${t.trial_number} / ${totalProblems} (Stage ${t.stage})`;
+  // 상단 진행 표시 (요청하신 형식)
+  const displayStage = t.sub_stage ? `Stage ${t.sub_stage}` : `Stage ${t.stage}`;
+  document.getElementById("progress").textContent = `${displayStage} (Trial ${t.trial_in_sub} / ${t.total_in_sub})`;
   
   document.getElementById("question").textContent = t.question;
   document.getElementById(t.stim_A ? "two" : "one").classList.remove("hidden");
@@ -203,8 +211,9 @@ document.getElementById("nextBtn").onclick = () => {
   
   const payload = {
     participant_id: participantId,
-    trial_number: t.trial_number, // 실제 문제 번호 (1, 2, 3...)
-    stage: t.stage,
+    trial_global: cursor + 1,
+    stage_display: t.sub_stage ? `4-${t.sub_stage.split('-')[1]}` : t.stage,
+    trial_in_stage: t.trial_in_sub,
     block: t.block,
     noise_db: noiseMatch ? noiseMatch[0] : "",
     question: t.question,
