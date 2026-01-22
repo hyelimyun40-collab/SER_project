@@ -30,7 +30,7 @@
 
     <div id="breakPanel" class="panel hidden">
         <h2 style="color: #28a745;"></h2>
-        <div id="breakMsg">수고하셨습니다.<br>잠시 눈을 붙이고 편안하게 휴식을 취해주세요.<br><br>준비가 되시면 아래 버튼을 눌러 진행하세요.</div>
+        <div id="breakMsg">수고하셨습니다.<br>잠시 휴식을 취한 후 Resume 버튼을 눌러주세요.</div>
         <div class="btnrow"><button id="resumeBtn" class="primary">Resume Experiment</button></div>
     </div>
 
@@ -112,20 +112,29 @@ function buildExperiment() {
   const intro2AFC = { type: 'instruction', msg: "두 개의 소리(A, B)를 차례로 듣고,\n질문에 가장 적절한 답을 선택해주세요." };
   const intro5AFC = { type: 'instruction', msg: "들려주는 소리를 듣고,\n5가지 감정 중 가장 가깝다고 느껴지는 감정을 선택해주세요.\n(다시 들으려면 'Play stimulus' 버튼을 클릭하세요)" };
 
-  // Stage 4 쪼개기 (180개를 45개씩)
   shuffle(s4);
   let s4_parts = [];
   for (let i = 0; i < s4.length; i += 45) {
       s4_parts.push(...s4.slice(i, i + 45));
-      if (i + 45 < s4.length) s4_parts.push({ type: 'break' }); // 마지막 조각 뒤에는 break 제외
+      if (i + 45 < s4.length) s4_parts.push({ type: 'break' });
   }
 
-  return [
+  const allTrialsRaw = [
       intro2AFC, ...shuffle(s1), {type: 'break'},
       ...shuffle(s2), {type: 'break'},
       intro5AFC, ...shuffle(s3), {type: 'break'},
       ...s4_parts
   ];
+
+  // [중요] 실제 문제들에만 시퀀스 번호(실험 번호) 매기기
+  let problemCount = 0;
+  return allTrialsRaw.map(t => {
+      if (t.stage) { // stage 정보가 있는 것은 실제 문제
+          problemCount++;
+          return { ...t, trial_number: problemCount };
+      }
+      return t;
+  });
 }
 
 function stopAudio() { if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; } }
@@ -138,17 +147,15 @@ function loadTrial() {
 
   document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
   document.getElementById("nextRow").classList.add("hidden");
-  document.getElementById("question").textContent = "";
 
-  if (t.type === 'break') {
-      document.getElementById("progress").textContent = "Break";
-      document.getElementById("breakPanel").classList.remove("hidden");
-      return; 
-  }
-  if (t.type === 'instruction') {
-      document.getElementById("progress").textContent = "Instruction";
-      document.getElementById("instructionMsg").textContent = t.msg;
-      document.getElementById("instructionPanel").classList.remove("hidden");
+  if (t.type === 'break' || t.type === 'instruction') {
+      document.getElementById("progress").textContent = t.type === 'break' ? "Break" : "Instruction";
+      document.getElementById("question").textContent = "";
+      if (t.type === 'break') document.getElementById("breakPanel").classList.remove("hidden");
+      else {
+          document.getElementById("instructionMsg").textContent = t.msg;
+          document.getElementById("instructionPanel").classList.remove("hidden");
+      }
       return;
   }
 
@@ -156,8 +163,10 @@ function loadTrial() {
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
   
-  const stageTrials = trials.filter(tr => tr.stage === t.stage && tr.type !== 'break' && tr.type !== 'instruction');
-  document.getElementById("progress").textContent = `Stage ${t.stage} | ${stageTrials.indexOf(t) + 1} / ${stageTrials.length}`;
+  // 진행 바 표시: 전체 실험 번호 / 총 문제 수
+  const totalProblems = trials.filter(tr => tr.stage).length;
+  document.getElementById("progress").textContent = `Trial ${t.trial_number} / ${totalProblems} (Stage ${t.stage})`;
+  
   document.getElementById("question").textContent = t.question;
   document.getElementById(t.stim_A ? "two" : "one").classList.remove("hidden");
   if (!t.stim_A) setTimeout(() => playAudio('single'), 500);
@@ -191,11 +200,23 @@ document.getElementById("nextBtn").onclick = () => {
   stopAudio();
   const t = trials[cursor];
   const noiseMatch = t.block.match(/\d+/);
+  
   const payload = {
-    participant_id: participantId, global_index: cursor + 1, stage: t.stage, block: t.block, noise_db: noiseMatch ? noiseMatch[0] : "",
-    question: t.question, stim_A: t.stim_A || "", stim_B: t.stim_B || "", stim: t.stim || "",
-    target: t.t || t.emo || "", response: pendingChoice, rt_ms: Math.round(performance.now() - t0), played_log: JSON.stringify(played)
+    participant_id: participantId,
+    trial_number: t.trial_number, // 실제 문제 번호 (1, 2, 3...)
+    stage: t.stage,
+    block: t.block,
+    noise_db: noiseMatch ? noiseMatch[0] : "",
+    question: t.question,
+    stim_A: t.stim_A || "",
+    stim_B: t.stim_B || "",
+    stim: t.stim || "",
+    target: t.t || t.emo || "",
+    response: pendingChoice,
+    rt_ms: Math.round(performance.now() - t0),
+    played_log: JSON.stringify(played)
   };
+
   fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
   cursor++; loadTrial();
 };
