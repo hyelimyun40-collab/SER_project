@@ -7,53 +7,50 @@
   <link rel="stylesheet" href="./static/style.css"/>
   <script src="./stimuli_list.js"></script>
   <style>
-    /* 기본 레이아웃 */
     body { display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f5f5f5; font-family: 'Pretendard', sans-serif; }
-    .card { text-align: center; width: 100%; max-width: 500px; padding: 40px; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
     
-    /* 상단 진행 표시 */
+    /* 가로 배치를 위해 카드 최대 너비를 700px로 확장 */
+    .card { text-align: center; width: 95%; max-width: 700px; padding: 40px; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    
     #progress { font-weight: 700; color: #555; margin-bottom: 20px; font-size: 1.1rem; }
-    
-    /* 질문 텍스트 */
     #question { margin: 25px 0; font-size: 1.4rem; color: #000; font-weight: 800; line-height: 1.4; min-height: 3.2rem; }
 
-    /* 공통 버튼 스타일 */
     button { cursor: pointer; border-radius: 8px; font-weight: 600; transition: all 0.2s; border: none; }
     .btnrow { display: flex; justify-content: center; gap: 12px; margin: 15px 0; }
     
-    /* Play 버튼 */
     #playA, #playB, #playOne { background-color: #333; color: white; padding: 12px 24px; font-size: 0.9rem; }
     #playA:hover, #playB:hover, #playOne:hover { background-color: #000; }
 
-    /* 2I2AFC 선택 버튼 */
     .choice2 { flex: 1; padding: 18px; background: white; border: 2px solid #eee; color: #000; font-size: 1.1rem; }
 
-    /* 5AFC 선택 버튼 - 너비 및 글자색 수정 */
-    .row5 { display: flex; flex-direction: column; gap: 10px; margin: 25px 0; align-items: center; }
+    /* 5AFC 가로 5칸 배치 스타일 */
+    .row5 { 
+      display: flex; 
+      justify-content: space-between; 
+      gap: 8px; 
+      margin: 30px 0; 
+    }
     .choice5 { 
-      width: 100%; 
-      max-width: 380px; 
-      padding: 16px 20px; 
-      font-size: 1.1rem; 
-      color: #000 !important; /* 글자색 완전 검정 */
+      flex: 1; 
+      display: flex; 
+      flex-direction: column; /* 글자가 위, 이모지가 아래로 배치 */
+      align-items: center; 
+      justify-content: center;
+      padding: 15px 5px; 
       background: #ffffff; 
       border: 2px solid #eee;
-      display: flex;
-      align-items: center;
-      gap: 15px;
-      text-align: left;
+      color: #000 !important; 
+      font-size: 0.95rem; /* 가로 폭을 위해 폰트 살짝 조정 */
+      min-width: 0; /* flex 박스 내 텍스트 넘침 방지 */
     }
-    .choice5 span { font-size: 1.3rem; width: 30px; text-align: center; }
+    .choice5 span { font-size: 1.5rem; margin-top: 8px; } /* 이모지 크기와 간격 */
     .choice5:hover { background: #f9f9f9; border-color: #ccc; }
 
-    /* 선택된 상태 강조 */
     .selected { background-color: #007bff !important; color: white !important; border-color: #007bff !important; }
 
-    /* 하단 Next 버튼 */
     #nextBtn, #resumeBtn, #startStageBtn { background-color: #007bff; color: white; padding: 16px 40px; font-size: 1.1rem; min-width: 200px; margin-top: 10px; }
     #nextBtn:disabled { background-color: #ccc; cursor: not-allowed; }
 
-    /* 패널 제어 */
     .hidden { display: none; }
     .panel { margin: 20px 0; }
     #breakMsg, #instructionMsg { font-size: 1.2rem; line-height: 1.6; color: #333; margin-bottom: 30px; white-space: pre-line; }
@@ -72,7 +69,7 @@
 
     <div id="breakPanel" class="panel hidden">
         <h2 style="color: #28a745;"></h2>
-        <div id="breakMsg">잠시 휴식을 취한 후 버튼을 눌러주세요.</div>
+        <div id="breakMsg">잠시 휴식을 취해주세요.</div>
         <div class="btnrow"><button id="resumeBtn">다시 시작하기</button></div>
     </div>
 
@@ -87,13 +84,13 @@
     </div>
 
     <div id="one" class="panel hidden">
-      <div class="btnrow"><button id="playOne">🔊 Play stimulus</button></div>
+      <div class="btnrow"><button id="playOne">Play stimulus</button></div>
       <div class="row5">
-        <button class="choice5" data-choice="Amusement"><span>😆</span> Amusement</button>
-        <button class="choice5" data-choice="Anger"><span>💢</span> Anger</button>
-        <button class="choice5" data-choice="Sadness"><span>😢</span> Sadness</button>
-        <button class="choice5" data-choice="Fear"><span>😨</span> Fear</button>
-        <button class="choice5" data-choice="Surprise"><span>😲</span> Surprise</button>
+        <button class="choice5" data-choice="Amusement">Amusement<span>😆</span></button>
+        <button class="choice5" data-choice="Anger">Anger<span>💢</span></button>
+        <button class="choice5" data-choice="Sadness">Sadness<span>😢</span></button>
+        <button class="choice5" data-choice="Fear">Fear<span>😨</span></button>
+        <button class="choice5" data-choice="Surprise">Surprise<span>😲</span></button>
       </div>
     </div>
 
@@ -101,10 +98,8 @@
   </div>
 
 <script>
-// ================= CONFIG =================
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxUijkRPCjY4CL0Y6UkoJ6E7JtJ3IY3R1--iAdOdPCHCTH85_gQmeWPgskUcOy8EUxn/exec"; 
 const NOISE_LEVELS = ["09", "12", "15"]; 
-// ==========================================
 
 const urlParams = new URLSearchParams(window.location.search);
 const participantId = urlParams.get('participant_id') || "anon";
@@ -139,7 +134,6 @@ function stopAudio() {
 
 function buildExperiment() {
   let s1 = [], s2 = [], s3 = [], s4 = [];
-
   NOISE_LEVELS.forEach(dB => {
       PAIRS_DISCRIMINATION.forEach(item => {
           const swap = Math.random() < 0.5;
@@ -154,41 +148,26 @@ function buildExperiment() {
       FILES_TEST_5AFC.forEach(fn => { s4.push({ stage: 4, block: `5AFC_test_${dB}dB`, stim: makeNoiseFile(dB, fn), question: "Which emotion is being expressed?" }); });
   });
 
-  const intro2AFC = { type: 'instruction', msg: "두 개의 소리(A, B)를 차례로 듣고,\n질문에 가장 적합한 답을 골라주세요." };
-  const intro5AFC = { type: 'instruction', msg: "들려주는 소리를 듣고,\n5가지 감정 중 가장 가깝다고 느껴지는 감정을 선택해주세요.\n다시 들으려면 'Play stimulus' 버튼을 누르세요." };
+  const intro2AFC = { type: 'instruction', msg: "두 개의 소리(A, B)를 차례로 듣고,\n질문에 가장 적합한 보기를 골라주세요." };
+  const intro5AFC = { type: 'instruction', msg: "소리를 듣고 5가지 감정 중 하나를 골라주세요.\n다시 들으려면 'Play stimulus' 버튼을 누르세요." };
 
-  // Stage 4 쪼개기 (45개씩)
   shuffle(s4);
   let s4_parts = [];
   const size = 45;
   for (let i = 0; i < s4.length; i += size) {
       let sub = s4.slice(i, i + size);
       let subNum = (i / size) + 1;
-      sub.forEach((t, idx) => {
-          t.display_stage = `4-${subNum}`;
-          t.trial_in_sub = idx + 1;
-          t.total_in_sub = sub.length;
-      });
+      sub.forEach((t, idx) => { t.display_stage = `4-${subNum}`; t.trial_in_sub = idx + 1; t.total_in_sub = sub.length; });
       s4_parts.push(...sub);
       if (i + size < s4.length) s4_parts.push({ type: 'break' });
   }
 
-  // 나머지 스테이지 넘버링
   [s1, s2, s3].forEach((stageArr, i) => {
       shuffle(stageArr);
-      stageArr.forEach((t, idx) => {
-          t.display_stage = (i + 1).toString();
-          t.trial_in_sub = idx + 1;
-          t.total_in_sub = stageArr.length;
-      });
+      stageArr.forEach((t, idx) => { t.display_stage = (i + 1).toString(); t.trial_in_sub = idx + 1; t.total_in_sub = stageArr.length; });
   });
 
-  return [
-      intro2AFC, ...s1, {type: 'break'},
-      ...s2, {type: 'break'},
-      intro5AFC, ...s3, {type: 'break'},
-      ...s4_parts
-  ];
+  return [intro2AFC, ...s1, {type: 'break'}, ...s2, {type: 'break'}, intro5AFC, ...s3, {type: 'break'}, ...s4_parts];
 }
 
 function loadTrial() {
@@ -196,7 +175,6 @@ function loadTrial() {
   if (cursor >= trials.length) { window.location.href = "./done.html"; return; }
   const t = trials[cursor];
   played = { A: [], B: [], single: [] }; pendingChoice = null; t0 = performance.now();
-
   document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
   document.getElementById("nextRow").classList.add("hidden");
 
@@ -204,22 +182,15 @@ function loadTrial() {
       document.getElementById("progress").textContent = t.type === 'break' ? "Break" : "Instruction";
       document.getElementById("question").textContent = "";
       if (t.type === 'break') document.getElementById("breakPanel").classList.remove("hidden");
-      else {
-          document.getElementById("instructionMsg").textContent = t.msg;
-          document.getElementById("instructionPanel").classList.remove("hidden");
-      }
+      else { document.getElementById("instructionMsg").textContent = t.msg; document.getElementById("instructionPanel").classList.remove("hidden"); }
       return;
   }
-
   document.getElementById("nextRow").classList.remove("hidden");
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
-  
-  // 요청하신 Progress 표시 형식
   document.getElementById("progress").textContent = `Stage ${t.display_stage} (Trial ${t.trial_in_sub} / ${t.total_in_sub})`;
   document.getElementById("question").textContent = t.question;
   document.getElementById(t.stim_A ? "two" : "one").classList.remove("hidden");
-  
   if (!t.stim_A) setTimeout(() => playAudio('single'), 500);
 }
 
@@ -252,24 +223,11 @@ document.getElementById("nextBtn").onclick = () => {
   stopAudio();
   const t = trials[cursor];
   const noiseMatch = t.block.match(/\d+/);
-  
   const payload = {
-    participant_id: participantId,
-    trial_global: cursor + 1,
-    trial_in_stage: t.trial_in_sub,
-    stage_name: `Stage ${t.display_stage}`,
-    block: t.block,
-    noise_db: noiseMatch ? noiseMatch[0] : "",
-    question: t.question,
-    stim_A: t.stim_A || "",
-    stim_B: t.stim_B || "",
-    stim: t.stim || "",
-    target: t.t || t.emo || "",
-    response: pendingChoice,
-    rt_ms: Math.round(performance.now() - t0),
-    played_log: JSON.stringify(played)
+    participant_id: participantId, trial_global: cursor + 1, trial_in_stage: t.trial_in_sub, stage_name: `Stage ${t.display_stage}`, block: t.block,
+    noise_db: noiseMatch ? noiseMatch[0] : "", question: t.question, stim_A: t.stim_A || "", stim_B: t.stim_B || "", stim: t.stim || "",
+    target: t.t || t.emo || "", response: pendingChoice, rt_ms: Math.round(performance.now() - t0), played_log: JSON.stringify(played)
   };
-
   fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
   cursor++; loadTrial();
 };
