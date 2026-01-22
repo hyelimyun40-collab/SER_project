@@ -7,37 +7,73 @@
   <link rel="stylesheet" href="./static/style.css"/>
   <script src="./stimuli_list.js"></script>
   <style>
-    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f5f5f5; }
-    .card { text-align: center; width: 100%; max-width: 600px; padding: 30px; background: white; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-    .panel { margin: 20px 0; }
-    .btnrow { display: flex; justify-content: center; gap: 10px; margin: 15px 0; }
-    #question { margin: 30px 0; font-size: 1.3rem; color: #000000; font-weight: 800; }
-    #nextBtn, #resumeBtn, #startStageBtn { padding: 12px 30px; font-size: 15px; min-width: 120px; cursor: pointer; border-radius: 8px; border: none; }
-    .primary { background-color: #007bff; color: white; }
-    .row5 { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin: 20px 0; }
-    .choice5 { padding: 15px; font-size: 1rem; cursor: pointer; transition: 0.2s; border: 1px solid #ddd; border-radius: 8px; background: #fff; flex: 1 1 120px; }
-    .choice5:hover { background: #f8f9fa; }
-    .selected { background-color: #007bff !important; color: white; border-color: #007bff; }
-    #progress { font-weight: bold; color: #444; margin-bottom: 10px; font-size: 1.1rem; }
-    #breakMsg, #instructionMsg { font-size: 1.2rem; line-height: 1.6; color: #333; margin-bottom: 30px; white-space: pre-line; }
+    /* 기본 레이아웃 */
+    body { display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; background-color: #f5f5f5; font-family: 'Pretendard', sans-serif; }
+    .card { text-align: center; width: 100%; max-width: 500px; padding: 40px; background: white; border-radius: 16px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    
+    /* 상단 진행 표시 */
+    #progress { font-weight: 700; color: #555; margin-bottom: 20px; font-size: 1.1rem; }
+    
+    /* 질문 텍스트 */
+    #question { margin: 25px 0; font-size: 1.4rem; color: #000; font-weight: 800; line-height: 1.4; min-height: 3.2rem; }
+
+    /* 공통 버튼 스타일 */
+    button { cursor: pointer; border-radius: 8px; font-weight: 600; transition: all 0.2s; border: none; }
+    .btnrow { display: flex; justify-content: center; gap: 12px; margin: 15px 0; }
+    
+    /* Play 버튼 */
+    #playA, #playB, #playOne { background-color: #333; color: white; padding: 12px 24px; font-size: 0.9rem; }
+    #playA:hover, #playB:hover, #playOne:hover { background-color: #000; }
+
+    /* 2I2AFC 선택 버튼 */
+    .choice2 { flex: 1; padding: 18px; background: white; border: 2px solid #eee; color: #000; font-size: 1.1rem; }
+
+    /* 5AFC 선택 버튼 - 너비 및 글자색 수정 */
+    .row5 { display: flex; flex-direction: column; gap: 10px; margin: 25px 0; align-items: center; }
+    .choice5 { 
+      width: 100%; 
+      max-width: 380px; 
+      padding: 16px 20px; 
+      font-size: 1.1rem; 
+      color: #000 !important; /* 글자색 완전 검정 */
+      background: #ffffff; 
+      border: 2px solid #eee;
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      text-align: left;
+    }
+    .choice5 span { font-size: 1.3rem; width: 30px; text-align: center; }
+    .choice5:hover { background: #f9f9f9; border-color: #ccc; }
+
+    /* 선택된 상태 강조 */
+    .selected { background-color: #007bff !important; color: white !important; border-color: #007bff !important; }
+
+    /* 하단 Next 버튼 */
+    #nextBtn, #resumeBtn, #startStageBtn { background-color: #007bff; color: white; padding: 16px 40px; font-size: 1.1rem; min-width: 200px; margin-top: 10px; }
+    #nextBtn:disabled { background-color: #ccc; cursor: not-allowed; }
+
+    /* 패널 제어 */
     .hidden { display: none; }
-    .instr-title { color: #007bff; font-weight: bold; font-size: 1.5rem; margin-bottom: 20px; }
+    .panel { margin: 20px 0; }
+    #breakMsg, #instructionMsg { font-size: 1.2rem; line-height: 1.6; color: #333; margin-bottom: 30px; white-space: pre-line; }
+    .instr-title { color: #007bff; font-weight: bold; font-size: 1.6rem; margin-bottom: 20px; }
   </style>
 </head>
 <body>
   <div class="card" id="app">
-    <div class="toprow"><div id="progress">Loading...</div></div>
+    <div id="progress">Loading...</div>
+
+    <div id="instructionPanel" class="panel hidden">
+        <div id="instructionTitle" class="instr-title">안내</div>
+        <div id="instructionMsg"></div>
+        <div class="btnrow"><button id="startStageBtn">실험 시작</button></div>
+    </div>
 
     <div id="breakPanel" class="panel hidden">
         <h2 style="color: #28a745;"></h2>
-        <div id="breakMsg">수고하셨습니다.<br>잠시 휴식을 취한 후 버튼을 눌러주세요.</div>
-        <div class="btnrow"><button id="resumeBtn" class="primary">Resume</button></div>
-    </div>
-
-    <div id="instructionPanel" class="panel hidden">
-        <div id="instructionTitle" class="instr-title">Instruction</div>
-        <div id="instructionMsg"></div>
-        <div class="btnrow"><button id="startStageBtn" class="primary">Start</button></div>
+        <div id="breakMsg">잠시 휴식을 취한 후 버튼을 눌러주세요.</div>
+        <div class="btnrow"><button id="resumeBtn">다시 시작하기</button></div>
     </div>
 
     <h2 id="question"></h2>
@@ -51,22 +87,24 @@
     </div>
 
     <div id="one" class="panel hidden">
-      <div class="btnrow"><button id="playOne">Play stimulus</button></div>
+      <div class="btnrow"><button id="playOne">🔊 Play stimulus</button></div>
       <div class="row5">
-        <button class="choice5" data-choice="Amusement">😆 Amusement</button>
-        <button class="choice5" data-choice="Anger">💢 Anger</button>
-        <button class="choice5" data-choice="Sadness">😢 Sadness</button>
-        <button class="choice5" data-choice="Fear">😨 Fear</button>
-        <button class="choice5" data-choice="Surprise">😲 Surprise</button>
+        <button class="choice5" data-choice="Amusement"><span>😆</span> Amusement</button>
+        <button class="choice5" data-choice="Anger"><span>💢</span> Anger</button>
+        <button class="choice5" data-choice="Sadness"><span>😢</span> Sadness</button>
+        <button class="choice5" data-choice="Fear"><span>😨</span> Fear</button>
+        <button class="choice5" data-choice="Surprise"><span>😲</span> Surprise</button>
       </div>
     </div>
 
-    <div class="btnrow" id="nextRow"><button id="nextBtn" class="primary" disabled>Next</button></div>
+    <div class="btnrow" id="nextRow"><button id="nextBtn" disabled>Next</button></div>
   </div>
 
 <script>
+// ================= CONFIG =================
 const GAS_URL = "https://script.google.com/macros/s/AKfycbxUijkRPCjY4CL0Y6UkoJ6E7JtJ3IY3R1--iAdOdPCHCTH85_gQmeWPgskUcOy8EUxn/exec"; 
 const NOISE_LEVELS = ["09", "12", "15"]; 
+// ==========================================
 
 const urlParams = new URLSearchParams(window.location.search);
 const participantId = urlParams.get('participant_id') || "anon";
@@ -92,6 +130,13 @@ function shuffle(array) {
   return array;
 }
 
+function stopAudio() {
+    if (currentAudio) {
+        currentAudio.pause();
+        currentAudio.currentTime = 0;
+    }
+}
+
 function buildExperiment() {
   let s1 = [], s2 = [], s3 = [], s4 = [];
 
@@ -109,29 +154,30 @@ function buildExperiment() {
       FILES_TEST_5AFC.forEach(fn => { s4.push({ stage: 4, block: `5AFC_test_${dB}dB`, stim: makeNoiseFile(dB, fn), question: "Which emotion is being expressed?" }); });
   });
 
-  const intro2AFC = { type: 'instruction', msg: "두 개의 소리(A, B)를 차례로 듣고,\n질문에 가장 적절한 답을 선택해주세요." };
-  const intro5AFC = { type: 'instruction', msg: "들려주는 소리를 듣고,\n5가지 감정 중 가장 가깝다고 느껴지는 감정을 선택해주세요.\n(다시 들으려면 'Play stimulus' 버튼을 클릭하세요)" };
+  const intro2AFC = { type: 'instruction', msg: "두 개의 소리(A, B)를 차례로 듣고,\n질문에 가장 적합한 답을 골라주세요." };
+  const intro5AFC = { type: 'instruction', msg: "들려주는 소리를 듣고,\n5가지 감정 중 가장 가깝다고 느껴지는 감정을 선택해주세요.\n다시 들으려면 'Play stimulus' 버튼을 누르세요." };
 
-  // Stage 4 쪼개기 및 넘버링
+  // Stage 4 쪼개기 (45개씩)
   shuffle(s4);
-  let s4_with_substages = [];
-  const chunkSize = 45;
-  for (let i = 0; i < s4.length; i += chunkSize) {
-      let subSection = s4.slice(i, i + chunkSize);
-      let subStageNum = (i / chunkSize) + 1;
-      subSection.forEach((t, idx) => {
-          t.sub_stage = `4-${subStageNum}`;
+  let s4_parts = [];
+  const size = 45;
+  for (let i = 0; i < s4.length; i += size) {
+      let sub = s4.slice(i, i + size);
+      let subNum = (i / size) + 1;
+      sub.forEach((t, idx) => {
+          t.display_stage = `4-${subNum}`;
           t.trial_in_sub = idx + 1;
-          t.total_in_sub = subSection.length;
+          t.total_in_sub = sub.length;
       });
-      s4_with_substages.push(...subSection);
-      if (i + chunkSize < s4.length) s4_with_substages.push({ type: 'break' });
+      s4_parts.push(...sub);
+      if (i + size < s4.length) s4_parts.push({ type: 'break' });
   }
 
-  // Stage 1, 2, 3에도 넘버링 정보 추가
-  [s1, s2, s3].forEach(stageArr => {
+  // 나머지 스테이지 넘버링
+  [s1, s2, s3].forEach((stageArr, i) => {
       shuffle(stageArr);
       stageArr.forEach((t, idx) => {
+          t.display_stage = (i + 1).toString();
           t.trial_in_sub = idx + 1;
           t.total_in_sub = stageArr.length;
       });
@@ -141,11 +187,9 @@ function buildExperiment() {
       intro2AFC, ...s1, {type: 'break'},
       ...s2, {type: 'break'},
       intro5AFC, ...s3, {type: 'break'},
-      ...s4_with_substages
+      ...s4_parts
   ];
 }
-
-function stopAudio() { if (currentAudio) { currentAudio.pause(); currentAudio.currentTime = 0; } }
 
 function loadTrial() {
   stopAudio();
@@ -171,12 +215,11 @@ function loadTrial() {
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
   
-  // 상단 진행 표시 (요청하신 형식)
-  const displayStage = t.sub_stage ? `Stage ${t.sub_stage}` : `Stage ${t.stage}`;
-  document.getElementById("progress").textContent = `${displayStage} (Trial ${t.trial_in_sub} / ${t.total_in_sub})`;
-  
+  // 요청하신 Progress 표시 형식
+  document.getElementById("progress").textContent = `Stage ${t.display_stage} (Trial ${t.trial_in_sub} / ${t.total_in_sub})`;
   document.getElementById("question").textContent = t.question;
   document.getElementById(t.stim_A ? "two" : "one").classList.remove("hidden");
+  
   if (!t.stim_A) setTimeout(() => playAudio('single'), 500);
 }
 
@@ -195,6 +238,7 @@ document.getElementById("startStageBtn").onclick = () => { cursor++; loadTrial()
 document.getElementById("playA").onclick = () => playAudio('A');
 document.getElementById("playB").onclick = () => playAudio('B');
 document.getElementById("playOne").onclick = () => playAudio('single');
+
 document.querySelectorAll(".choice2, .choice5").forEach(btn => {
   btn.onclick = () => {
     btn.closest('.panel').querySelectorAll("button").forEach(b => b.classList.remove("selected"));
@@ -212,8 +256,8 @@ document.getElementById("nextBtn").onclick = () => {
   const payload = {
     participant_id: participantId,
     trial_global: cursor + 1,
-    stage_display: t.sub_stage ? `4-${t.sub_stage.split('-')[1]}` : t.stage,
     trial_in_stage: t.trial_in_sub,
+    stage_name: `Stage ${t.display_stage}`,
     block: t.block,
     noise_db: noiseMatch ? noiseMatch[0] : "",
     question: t.question,
