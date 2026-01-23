@@ -225,8 +225,27 @@ document.getElementById("nextBtn").onclick = () => {
   const t = trials[cursor];
   const noiseMatch = t.block.match(/\d+/);
   
-  // 정답 여부 체크 (1: 정답, 0: 오답)
-  const isCorrect = (pendingChoice === (t.t || t.emo)) ? 1 : 0;
+  let finalResponse = pendingChoice; // 기본값은 A, B 또는 감정명
+  let isCorrect = null;
+
+  // --- Stage 2: Dry vs RVB 판별 로직 ---
+  if (t.stage === 2) {
+    // 선택한 버튼(A 또는 B)에 해당하는 파일명을 가져옴
+    const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
+    // 파일명에 'rvb'가 포함되어 있는지 확인
+    finalResponse = selectedFile.includes('rvb') ? 'RVB' : 'Dry';
+    isCorrect = null; // 정답 없음
+  } 
+  // --- Stage 1: 2AFC 정답 체크 ---
+  else if (t.stage === 1) {
+    const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
+    // 선택한 파일명이 타겟 감정(t.t)을 포함하고 있는지 확인
+    isCorrect = selectedFile.includes(t.t) ? 1 : 0;
+  }
+  // --- Stage 3, 4: 5AFC 정답 체크 ---
+  else if (t.stage >= 3) {
+    isCorrect = (pendingChoice === (t.t || t.emo)) ? 1 : 0;
+  }
 
   // 총 재생 횟수 계산
   const totalPlayCount = played.A.length + played.B.length + played.single.length;
@@ -241,7 +260,7 @@ document.getElementById("nextBtn").onclick = () => {
     question: t.question, stim_A: t.stim_A || "", 
     stim_B: t.stim_B || "", stim: t.stim || "",
     target: t.t || t.emo || "", 
-    response: pendingChoice, 
+    response: finalResponse, // Stage 2에서는 'Dry'/'RVB'로 기록됨
     is_correct: isCorrect,        // 추가: 정답 여부
     play_count: totalPlayCount,   // 추가: 총 재생 횟수
     rt_ms: Math.round(performance.now() - t0), 
