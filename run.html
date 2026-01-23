@@ -233,7 +233,7 @@ document.getElementById("nextBtn").onclick = () => {
     // 선택한 버튼(A 또는 B)에 해당하는 파일명을 가져옴
     const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
     // 파일명에 'rvb'가 포함되어 있는지 확인
-    finalResponse = selectedFile.includes('rvb') ? 'RVB' : 'Dry';
+    finalResponse = selectedFile.includes('rvb') ? 'RVB' : 'DRY';
     isCorrect = null; // 정답 없음
   } 
   // --- Stage 1: 2AFC 정답 체크 ---
