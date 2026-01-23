@@ -224,8 +224,8 @@ document.getElementById("nextBtn").onclick = () => {
   stopAudio();
   const t = trials[cursor];
   
-  // 1. 소음 레벨(dB) 정보 추출 (09, 12, 15)
-  const noiseMatch = t.block.match(/\d+/);
+  // 'dB' 바로 앞에 붙어있는 숫자 2자리만 가져오도록 수정
+  const noiseMatch = t.block.match(/(\d+)(?=dB)/);
   const dbValue = noiseMatch ? noiseMatch[0] : "";
 
   let finalResponse = pendingChoice; 
