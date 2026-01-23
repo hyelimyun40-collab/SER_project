@@ -225,9 +225,19 @@ document.getElementById("nextBtn").onclick = () => {
   const t = trials[cursor];
   const noiseMatch = t.block.match(/\d+/);
   const payload = {
-    participant_id: participantId, trial_global: cursor + 1, trial_in_stage: t.trial_in_sub, stage_name: `Stage ${t.display_stage}`, block: t.block,
-    noise_db: noiseMatch ? noiseMatch[0] : "", question: t.question, stim_A: t.stim_A || "", stim_B: t.stim_B || "", stim: t.stim || "",
-    target: t.t || t.emo || "", response: pendingChoice, rt_ms: Math.round(performance.now() - t0), played_log: JSON.stringify(played)
+    participant_id: participantId, 
+    // trial_global: cursor + 1, 
+    trial_global: trials.filter((t, idx) => idx < cursor && !t.type).length + 1,
+    trial_in_stage: t.trial_in_sub, 
+    stage_name: `Stage ${t.display_stage}`, 
+    block: t.block,
+    noise_db: noiseMatch ? noiseMatch[0] : "",
+    question: t.question, stim_A: t.stim_A || "", 
+    stim_B: t.stim_B || "", stim: t.stim || "",
+    target: t.t || t.emo || "", 
+    response: pendingChoice, 
+    rt_ms: Math.round(performance.now() - t0), 
+    played_log: JSON.stringify(played)
   };
   fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
   cursor++; loadTrial();
