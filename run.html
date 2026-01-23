@@ -98,7 +98,7 @@
   </div>
 
 <script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycbzuQpQ8Mq3g1KsimsDSL-t7WhhK6rMx9jN7FUhf-4Hm_R92qaCQpwfEeCgeh8LsYsa4/exec"; 
+const GAS_URL = "https://script.google.com/macros/s/AKfycbx9x0_z7qs7jfvNNeo5XWUqkZWk6c8jinpFDP_jfpfUH_VEoI2sR6YFZz42dPBd33Im/exec"; 
 
 const NOISE_LEVELS = ["09", "12", "15"]; 
 
@@ -229,34 +229,34 @@ document.getElementById("nextBtn").onclick = () => {
   const dbValue = noiseMatch ? noiseMatch[0] : "";
 
   let finalResponse = pendingChoice; 
+  let stimType = ""; // Q열에 들어갈 변수
   let isCorrect = null;
   const targetValue = t.t || t.emo || ""; // K열 정답 값
 
-  // 2. 스테이지별 응답 기록 및 정답 판별 로직
+  // 1. Stage 1
   if (t.stage === 1) {
-    // Stage 1: 선택한 버튼의 감정 약자 추출
     const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
     const emotions = ["amu", "ang", "sad", "fear", "surp", "rel"];
     finalResponse = emotions.find(e => selectedFile.includes(e)) || pendingChoice;
     isCorrect = selectedFile.includes(t.t) ? 1 : 0;
+    stimType = "dry"; // Stage 1은 기본적으로 dry 또는 특정 타입 지정 가능
   } 
+  // 2. Stage 2
   else if (t.stage === 2) {
-    // Stage 2: dry/rvb 판별 (소문자로 기록)
     const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
     finalResponse = selectedFile.includes('rvb') ? 'rvb' : 'dry';
+    stimType = finalResponse; // Stage 2는 선택한 것 자체가 타입
     isCorrect = null;
   } 
+  // 3. Stage 3 & 4 (5AFC)
   else if (t.stage === 3 || t.display_stage.toString().startsWith("4")) {
-    // Stage 3 & 4 (5AFC): rvb1, rvb2 상세 판별
-    if (t.stim && t.stim.includes('rvb1')) {
-      finalResponse = `${pendingChoice}_rvb1`;
-    } else if (t.stim && t.stim.includes('rvb2')) {
-      finalResponse = `${pendingChoice}_rvb2`;
-    } else if (t.stim && t.stim.includes('rvb')) {
-      finalResponse = `${pendingChoice}_rvb`;
-    } else {
-      finalResponse = `${pendingChoice}_dry`;
-    }
+    // 음원 파일명에서 타입 추출
+    if (t.stim.includes('rvb1')) stimType = 'rvb1';
+    else if (t.stim.includes('rvb2')) stimType = 'rvb2';
+    else if (t.stim.includes('rvb')) stimType = 'rvb';
+    else stimType = 'dry';
+
+    finalResponse = pendingChoice; // L열에는 오직 감정 약자만!
     isCorrect = (pendingChoice === targetValue) ? 1 : 0;
   }
 
@@ -275,6 +275,7 @@ document.getElementById("nextBtn").onclick = () => {
     stim: t.stim || "",
     target: targetValue,
     response: finalResponse,      // rvb, dry, amu_rvb1 등으로 기록
+    stim_type: stimType, // 새 행 데이터 추가
     is_correct: isCorrect,
     play_count: totalPlayCount,
     rt_ms: Math.round(performance.now() - t0), 
