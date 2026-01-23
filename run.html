@@ -224,39 +224,40 @@ document.getElementById("nextBtn").onclick = () => {
   stopAudio();
   const t = trials[cursor];
   
-  // 'dB' 바로 앞에 붙어있는 숫자 2자리만 가져오도록 수정
+  // 1. 소음 레벨 추출 (dB 바로 앞 숫자)
   const noiseMatch = t.block.match(/(\d+)(?=dB)/);
   const dbValue = noiseMatch ? noiseMatch[0] : "";
 
   let finalResponse = pendingChoice; 
   let isCorrect = null;
+  const targetValue = t.t || t.emo || ""; // K열 정답 값
 
-  // 2. 스테이지별 응답 및 정답 판별 로직
-  if (t.stage === 2) {
-    // Stage 2: 선택한 버튼의 파일명에 'rvb'가 포함되었는지 확인
+  // 2. 스테이지별 응답 기록 및 정답 판별 로직
+  if (t.stage === 1) {
+    // Stage 1: 선택한 버튼의 감정 약자 추출
+    const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
+    const emotions = ["amu", "ang", "sad", "fear", "surp", "rel"];
+    finalResponse = emotions.find(e => selectedFile.includes(e)) || pendingChoice;
+    isCorrect = selectedFile.includes(t.t) ? 1 : 0;
+  } 
+  else if (t.stage === 2) {
+    // Stage 2: dry/rvb 판별 (소문자로 기록)
     const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
     finalResponse = selectedFile.includes('rvb') ? 'rvb' : 'dry';
-    isCorrect = null; // 정답 없음
+    isCorrect = null;
   } 
-  else if (t.display_stage.toString().startsWith("4")) {
-    // Stage 4: 파일명에서 RVB 타입을 판별하여 RVB1 또는 RVB2로 기록
-    // stim 파일명에 'rvb1' 또는 'rvb2'가 포함되어 있는지 확인하여 응답과 조합
-    if (t.stim.includes('rvb1')) {
+  else if (t.stage === 3 || t.display_stage.toString().startsWith("4")) {
+    // Stage 3 & 4 (5AFC): rvb1, rvb2 상세 판별
+    if (t.stim && t.stim.includes('rvb1')) {
       finalResponse = `${pendingChoice}_rvb1`;
-    } else if (t.stim.includes('rvb2')) {
+    } else if (t.stim && t.stim.includes('rvb2')) {
       finalResponse = `${pendingChoice}_rvb2`;
+    } else if (t.stim && t.stim.includes('rvb')) {
+      finalResponse = `${pendingChoice}_rvb`;
+    } else {
+      finalResponse = `${pendingChoice}_dry`;
     }
-    // 정답 체크 (선택한 감정명이 타겟과 일치하는지)
-    isCorrect = (pendingChoice === (t.t || t.emo)) ? 1 : 0;
-  }
-  else if (t.stage === 1) {
-    // Stage 1: 선택한 파일명이 타겟 감정을 포함하는지 확인
-    const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
-    isCorrect = selectedFile.includes(t.t) ? 1 : 0;
-  }
-  else if (t.stage === 3) {
-    // Stage 3 (Practice 5AFC): 정답 체크
-    isCorrect = (pendingChoice === (t.t || t.emo)) ? 1 : 0;
+    isCorrect = (pendingChoice === targetValue) ? 1 : 0;
   }
 
   const totalPlayCount = played.A.length + played.B.length + played.single.length;
@@ -267,13 +268,13 @@ document.getElementById("nextBtn").onclick = () => {
     trial_in_stage: t.trial_in_sub, 
     stage_name: `Stage ${t.display_stage}`, 
     block: t.block,
-    noise_db: dbValue,           // 09, 12, 15가 숫자로만 깔끔하게 기록됨
+    noise_db: dbValue,
     question: t.question, 
     stim_A: t.stim_A || "", 
     stim_B: t.stim_B || "", 
     stim: t.stim || "",
-    target: t.t || t.emo || "", 
-    response: finalResponse,      // Stage 2(Dry/RVB), Stage 4(Fear_RVB1 등) 반영
+    target: targetValue,
+    response: finalResponse,      // rvb, dry, amu_rvb1 등으로 기록
     is_correct: isCorrect,
     play_count: totalPlayCount,
     rt_ms: Math.round(performance.now() - t0), 
