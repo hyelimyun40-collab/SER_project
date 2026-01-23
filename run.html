@@ -98,7 +98,7 @@
   </div>
 
 <script>
-const GAS_URL = "https://script.google.com/macros/s/AKfycbwI7RideUQd_leg4ZHq7O6Fo7za7aDGwuD6SjDkDKDeZ2rTs7hFyT6jRvSQ-t9mww/exec"; 
+const GAS_URL = "https://script.google.com/macros/s/AKfycbz7NkkyT6Fa2d_VGv82GxdZae91DRgE6sbOAhcKVzo_VcFFeIR4m5PT1oV1Rea3aqhh/exec"; 
 
 const NOISE_LEVELS = ["09", "12", "15"]; 
 
@@ -223,49 +223,63 @@ document.querySelectorAll(".choice2, .choice5").forEach(btn => {
 document.getElementById("nextBtn").onclick = () => {
   stopAudio();
   const t = trials[cursor];
-  const noiseMatch = t.block.match(/\d+/);
   
-  let finalResponse = pendingChoice; // 기본값은 A, B 또는 감정명
+  // 1. 소음 레벨(dB) 정보 추출 (09, 12, 15)
+  const noiseMatch = t.block.match(/\d+/);
+  const dbValue = noiseMatch ? noiseMatch[0] : "";
+
+  let finalResponse = pendingChoice; 
   let isCorrect = null;
 
-  // --- Stage 2: Dry vs RVB 판별 로직 ---
+  // 2. 스테이지별 응답 및 정답 판별 로직
   if (t.stage === 2) {
-    // 선택한 버튼(A 또는 B)에 해당하는 파일명을 가져옴
+    // Stage 2: 선택한 버튼의 파일명에 'rvb'가 포함되었는지 확인
     const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
-    // 파일명에 'rvb'가 포함되어 있는지 확인
-    finalResponse = selectedFile.includes('rvb') ? 'RVB' : 'DRY';
+    finalResponse = selectedFile.includes('rvb') ? 'rvb' : 'dry';
     isCorrect = null; // 정답 없음
   } 
-  // --- Stage 1: 2AFC 정답 체크 ---
+  else if (t.display_stage.toString().startsWith("4")) {
+    // Stage 4: 파일명에서 RVB 타입을 판별하여 RVB1 또는 RVB2로 기록
+    // stim 파일명에 'rvb1' 또는 'rvb2'가 포함되어 있는지 확인하여 응답과 조합
+    if (t.stim.includes('rvb1')) {
+      finalResponse = `${pendingChoice}_rvb1`;
+    } else if (t.stim.includes('rvb2')) {
+      finalResponse = `${pendingChoice}_rvb2`;
+    }
+    // 정답 체크 (선택한 감정명이 타겟과 일치하는지)
+    isCorrect = (pendingChoice === (t.t || t.emo)) ? 1 : 0;
+  }
   else if (t.stage === 1) {
+    // Stage 1: 선택한 파일명이 타겟 감정을 포함하는지 확인
     const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
-    // 선택한 파일명이 타겟 감정(t.t)을 포함하고 있는지 확인
     isCorrect = selectedFile.includes(t.t) ? 1 : 0;
   }
-  // --- Stage 3, 4: 5AFC 정답 체크 ---
-  else if (t.stage >= 3) {
+  else if (t.stage === 3) {
+    // Stage 3 (Practice 5AFC): 정답 체크
     isCorrect = (pendingChoice === (t.t || t.emo)) ? 1 : 0;
   }
 
-  // 총 재생 횟수 계산
   const totalPlayCount = played.A.length + played.B.length + played.single.length;
-  
+
   const payload = {
     participant_id: participantId, 
     trial_global: trials.filter((t, idx) => idx < cursor && !t.type).length + 1,
     trial_in_stage: t.trial_in_sub, 
     stage_name: `Stage ${t.display_stage}`, 
     block: t.block,
-    noise_db: noiseMatch ? noiseMatch[0] : "",
-    question: t.question, stim_A: t.stim_A || "", 
-    stim_B: t.stim_B || "", stim: t.stim || "",
+    noise_db: dbValue,           // 09, 12, 15가 숫자로만 깔끔하게 기록됨
+    question: t.question, 
+    stim_A: t.stim_A || "", 
+    stim_B: t.stim_B || "", 
+    stim: t.stim || "",
     target: t.t || t.emo || "", 
-    response: finalResponse, // Stage 2에서는 'Dry'/'RVB'로 기록됨
-    is_correct: isCorrect,        // 추가: 정답 여부
-    play_count: totalPlayCount,   // 추가: 총 재생 횟수
+    response: finalResponse,      // Stage 2(Dry/RVB), Stage 4(Fear_RVB1 등) 반영
+    is_correct: isCorrect,
+    play_count: totalPlayCount,
     rt_ms: Math.round(performance.now() - t0), 
     played_log: JSON.stringify(played)
   };
+
   fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
   cursor++; loadTrial();
 };
