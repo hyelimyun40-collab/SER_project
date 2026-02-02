@@ -106,13 +106,11 @@ const urlParams = new URLSearchParams(window.location.search);
 const participantId = urlParams.get('participant_id') || "anon";
 
 let trials = [];
-let failedTrials = []; // 🔴 전송 실패한 시행을 담아둘 리스트
 let cursor = 0;
 let t0 = null;
 let played = { A: [], B: [], single: [] };
 let pendingChoice = null;
 let currentAudio = null;
-let isRetrying = false; // 재시도 모드인지 확인하는 플래그
 
 const emoFullNames = { "amu": "amused", "rel": "relieved", "sad": "sad", "ang": "angry", "fear": "fearful", "surp": "surprised", "sur": "surprised" };
 
@@ -137,6 +135,7 @@ function stopAudio() {
 
 function buildExperiment() {
   let s1 = [], s2 = [], s3 = [], s4 = [];
+  // 감정 약자 목록 (파일명에서 정답을 추출하기 위함)
   const emotions = ["amu", "ang", "sad", "fear", "surp"];
   
   NOISE_LEVELS.forEach(dB => {
@@ -149,10 +148,13 @@ function buildExperiment() {
           const swap = Math.random() < 0.5;
           s2.push({ stage: 2, block: `2I2AFC_2_${dB}dB`, stim_A: swap ? makeNoiseFile(dB, `${base}_rvb.wav`) : makeNoiseFile(dB, `${base}.wav`), stim_B: swap ? makeNoiseFile(dB, `${base}.wav`) : makeNoiseFile(dB, `${base}_rvb.wav`), emo: item.emo, question: `Which sounded more ${emoFullNames[item.emo] || item.emo}?` });
       });
+      // Stage 3 (수정됨: 파일명에서 emo 추출 추가)
       FILES_PRACTICE_5AFC.slice(0, 10).forEach(fn => { 
           const foundEmo = emotions.find(e => fn.toLowerCase().includes(e));
           s3.push({ stage: 3, block: `5AFC_practice_${dB}dB`, stim: makeNoiseFile(dB, fn), emo: foundEmo, question: "Which emotion is being expressed?" }); 
       });
+
+      // Stage 4 (수정됨: 파일명에서 emo 추출 추가)
       FILES_TEST_5AFC.forEach(fn => { 
           const foundEmo = emotions.find(e => fn.toLowerCase().includes(e));
           s4.push({ stage: 4, block: `5AFC_test_${dB}dB`, stim: makeNoiseFile(dB, fn), emo: foundEmo, question: "Which emotion is being expressed?" }); 
@@ -183,27 +185,7 @@ function buildExperiment() {
 
 function loadTrial() {
   stopAudio();
-
-  // 🔴 [중요] 모든 시행이 끝났을 때 실패한 게 있는지 확인하는 로직
-  if (cursor >= trials.length) { 
-      if (failedTrials.length > 0) {
-          // 실패한 목록이 있다면
-          alert(`네트워크 오류로 저장되지 않은 ${failedTrials.length}개의 시행이 있습니다.\n확인을 누르면 해당 시행들을 다시 진행합니다.`);
-          
-          // trials를 실패한 것들로만 교체
-          trials = [...failedTrials];
-          failedTrials = []; // 실패 목록 초기화 (다시 하다가 또 실패하면 여기에 다시 쌓임)
-          cursor = 0;
-          isRetrying = true; // 재시도 중임을 표시
-          loadTrial(); // 다시 시작
-          return;
-      } else {
-          // 실패한 것도 없고 다 끝났으면 종료 페이지로
-          window.location.href = "./done.html"; 
-          return; 
-      }
-  }
-
+  if (cursor >= trials.length) { window.location.href = "./done.html"; return; }
   const t = trials[cursor];
   played = { A: [], B: [], single: [] }; pendingChoice = null; t0 = performance.now();
   document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
@@ -219,12 +201,7 @@ function loadTrial() {
   document.getElementById("nextRow").classList.remove("hidden");
   document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
-  
-  // 진행 상황 표시 (재시도 중일 때는 별도 표시)
-  let progressText = `Stage ${t.display_stage} (Trial ${t.trial_in_sub} / ${t.total_in_sub})`;
-  if (isRetrying) progressText += " [재시도 중]";
-  
-  document.getElementById("progress").textContent = progressText;
+  document.getElementById("progress").textContent = `Stage ${t.display_stage} (Trial ${t.trial_in_sub} / ${t.total_in_sub})`;
   document.getElementById("question").textContent = t.question;
   document.getElementById(t.stim_A ? "two" : "one").classList.remove("hidden");
   if (!t.stim_A) setTimeout(() => playAudio('single'), 500);
@@ -257,8 +234,9 @@ document.querySelectorAll(".choice2, .choice5").forEach(btn => {
 
 document.getElementById("nextBtn").onclick = () => {
   stopAudio();
-  const t = trials[cursor]; // 현재 시행 정보를 백업해둠 (실패 시 사용)
+  const t = trials[cursor];
   
+  // 1. 소음 레벨 추출
   const noiseMatch = t.block.match(/(\d+)(?=dB)/);
   const dbValue = noiseMatch ? noiseMatch[0] : "";
 
@@ -266,8 +244,10 @@ document.getElementById("nextBtn").onclick = () => {
   let stimType = ""; 
   let isCorrect = null;
 
+  // 중요: t.t(2AFC용) 또는 t.emo(5AFC용)를 명확히 가져와서 targetValue에 할당
   const targetValue = t.t || t.emo || ""; 
 
+  // 2. 스테이지별 판별 로직 (t.stage 숫자를 기준으로 판단하는 것이 가장 정확합니다)
   if (t.stage === 1) {
     const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
     const emotions = ["amu", "ang", "sad", "fear", "surp", "rel"];
@@ -281,7 +261,9 @@ document.getElementById("nextBtn").onclick = () => {
     stimType = finalResponse;
     isCorrect = null;
   } 
+  // Stage 3(연습)와 Stage 4(본실험) 모두 처리
   else if (t.stage === 3 || t.stage === 4) {
+    // 음원 파일명에서 타입 추출
     if (t.stim && t.stim.includes('rvb1')) stimType = 'rvb1';
     else if (t.stim && t.stim.includes('rvb2')) stimType = 'rvb2';
     else if (t.stim && t.stim.includes('rvb')) stimType = 'rvb';
@@ -293,40 +275,26 @@ document.getElementById("nextBtn").onclick = () => {
 
   const payload = {
     participant_id: participantId, 
-    // 재시도인 경우 원래 로그에 표시를 남길 수도 있음
-    block: t.block + (isRetrying ? "_RETRY" : ""),
+    trial_global: trials.filter((t, idx) => idx < cursor && !t.type).length + 1,
+    trial_in_stage: t.trial_in_sub, 
+    stage_name: `Stage ${t.display_stage}`, 
+    block: t.block,
     noise_db: dbValue,
     question: t.question, 
     stim_A: t.stim_A || "", 
     stim_B: t.stim_B || "", 
     stim: t.stim || "",
-    target: targetValue,
+    target: targetValue,         // 이제 Stage 3, 4에서도 t.emo 값이 여기에 들어갑니다.
     response: finalResponse,
     stim_type: stimType, 
     is_correct: isCorrect,
+    play_count: played.A.length + played.B.length + played.single.length,
     rt_ms: Math.round(performance.now() - t0), 
     played_log: JSON.stringify(played)
   };
 
-  // 🔴 [수정됨] 기다리지 않고(no await) 보내되, 실패하면 리스트에 추가
-  fetch(GAS_URL, { 
-      method: "POST", 
-      mode: "no-cors", 
-      body: JSON.stringify(payload) 
-  })
-  .then(() => {
-      // 성공 시 아무것도 안 함 (잘 갔겠거니 함)
-      // no-cors 모드라 서버 내부 에러는 못 잡지만, 네트워크 에러는 catch로 잡힘
-  })
-  .catch((err) => {
-      console.error("데이터 전송 실패! 재시도 목록에 추가:", err);
-      // 실패한 현재 시행(t)을 재시도 리스트에 넣음
-      failedTrials.push(t);
-  });
-
-  // 즉시 다음으로 이동 (속도 저하 없음)
-  cursor++; 
-  loadTrial();
+  fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
+  cursor++; loadTrial();
 };
 
 window.onload = () => { trials = buildExperiment(); loadTrial(); };
