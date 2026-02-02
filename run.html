@@ -135,7 +135,6 @@ function stopAudio() {
 
 function buildExperiment() {
   let s1 = [], s2 = [], s3 = [], s4 = [];
-  // 감정 약자 목록 (파일명에서 정답을 추출하기 위함)
   const emotions = ["amu", "ang", "sad", "fear", "surp"];
   
   NOISE_LEVELS.forEach(dB => {
@@ -148,13 +147,13 @@ function buildExperiment() {
           const swap = Math.random() < 0.5;
           s2.push({ stage: 2, block: `2I2AFC_2_${dB}dB`, stim_A: swap ? makeNoiseFile(dB, `${base}_rvb.wav`) : makeNoiseFile(dB, `${base}.wav`), stim_B: swap ? makeNoiseFile(dB, `${base}.wav`) : makeNoiseFile(dB, `${base}_rvb.wav`), emo: item.emo, question: `Which sounded more ${emoFullNames[item.emo] || item.emo}?` });
       });
-      // Stage 3 (수정됨: 파일명에서 emo 추출 추가)
+      // Stage 3
       FILES_PRACTICE_5AFC.slice(0, 10).forEach(fn => { 
           const foundEmo = emotions.find(e => fn.toLowerCase().includes(e));
           s3.push({ stage: 3, block: `5AFC_practice_${dB}dB`, stim: makeNoiseFile(dB, fn), emo: foundEmo, question: "Which emotion is being expressed?" }); 
       });
 
-      // Stage 4 (수정됨: 파일명에서 emo 추출 추가)
+      // Stage 4
       FILES_TEST_5AFC.forEach(fn => { 
           const foundEmo = emotions.find(e => fn.toLowerCase().includes(e));
           s4.push({ stage: 4, block: `5AFC_test_${dB}dB`, stim: makeNoiseFile(dB, fn), emo: foundEmo, question: "Which emotion is being expressed?" }); 
@@ -191,6 +190,11 @@ function loadTrial() {
   document.querySelectorAll(".panel").forEach(p => p.classList.add("hidden"));
   document.getElementById("nextRow").classList.add("hidden");
 
+  // 버튼 초기화 (텍스트 및 활성화 상태)
+  const nextBtn = document.getElementById("nextBtn");
+  nextBtn.disabled = true;
+  nextBtn.innerText = "Next";
+
   if (t.type === 'break' || t.type === 'instruction') {
       document.getElementById("progress").textContent = t.type === 'break' ? "Break" : "Instruction";
       document.getElementById("question").textContent = "";
@@ -199,7 +203,6 @@ function loadTrial() {
       return;
   }
   document.getElementById("nextRow").classList.remove("hidden");
-  document.getElementById("nextBtn").disabled = true;
   document.querySelectorAll("button").forEach(b => b.classList.remove("selected"));
   document.getElementById("progress").textContent = `Stage ${t.display_stage} (Trial ${t.trial_in_sub} / ${t.total_in_sub})`;
   document.getElementById("question").textContent = t.question;
@@ -217,6 +220,26 @@ function playAudio(type) {
   played[type].push(Math.round(performance.now() - t0));
 }
 
+// ✅ [추가됨] 데이터를 안전하게 보내는 재시도 함수
+async function sendDataWithRetry(url, payload, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            // await를 사용하여 전송이 완료될 때까지 기다립니다.
+            await fetch(url, { 
+                method: "POST", 
+                mode: "no-cors", 
+                body: JSON.stringify(payload) 
+            });
+            return true; // 에러 없이 전송됨 (no-cors라 서버 응답 확인은 불가하지만 전송 자체는 성공)
+        } catch (err) {
+            console.error(`Attempt ${i+1} failed. Retrying...`, err);
+            // 실패 시 잠시 대기 (1초, 2초...)
+            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
+        }
+    }
+    return false; // 모든 재시도 실패
+}
+
 document.getElementById("resumeBtn").onclick = () => { cursor++; loadTrial(); };
 document.getElementById("startStageBtn").onclick = () => { cursor++; loadTrial(); };
 document.getElementById("playA").onclick = () => playAudio('A');
@@ -232,11 +255,11 @@ document.querySelectorAll(".choice2, .choice5").forEach(btn => {
   };
 });
 
-document.getElementById("nextBtn").onclick = () => {
+// ✅ [수정됨] Next 버튼 클릭 시 데이터를 전송하고 기다리도록 async/await 적용
+document.getElementById("nextBtn").onclick = async () => {
   stopAudio();
   const t = trials[cursor];
   
-  // 1. 소음 레벨 추출
   const noiseMatch = t.block.match(/(\d+)(?=dB)/);
   const dbValue = noiseMatch ? noiseMatch[0] : "";
 
@@ -244,10 +267,8 @@ document.getElementById("nextBtn").onclick = () => {
   let stimType = ""; 
   let isCorrect = null;
 
-  // 중요: t.t(2AFC용) 또는 t.emo(5AFC용)를 명확히 가져와서 targetValue에 할당
   const targetValue = t.t || t.emo || ""; 
 
-  // 2. 스테이지별 판별 로직 (t.stage 숫자를 기준으로 판단하는 것이 가장 정확합니다)
   if (t.stage === 1) {
     const selectedFile = (pendingChoice === 'A') ? t.stim_A : t.stim_B;
     const emotions = ["amu", "ang", "sad", "fear", "surp", "rel"];
@@ -261,9 +282,7 @@ document.getElementById("nextBtn").onclick = () => {
     stimType = finalResponse;
     isCorrect = null;
   } 
-  // Stage 3(연습)와 Stage 4(본실험) 모두 처리
   else if (t.stage === 3 || t.stage === 4) {
-    // 음원 파일명에서 타입 추출
     if (t.stim && t.stim.includes('rvb1')) stimType = 'rvb1';
     else if (t.stim && t.stim.includes('rvb2')) stimType = 'rvb2';
     else if (t.stim && t.stim.includes('rvb')) stimType = 'rvb';
@@ -284,7 +303,7 @@ document.getElementById("nextBtn").onclick = () => {
     stim_A: t.stim_A || "", 
     stim_B: t.stim_B || "", 
     stim: t.stim || "",
-    target: targetValue,         // 이제 Stage 3, 4에서도 t.emo 값이 여기에 들어갑니다.
+    target: targetValue,
     response: finalResponse,
     stim_type: stimType, 
     is_correct: isCorrect,
@@ -293,8 +312,23 @@ document.getElementById("nextBtn").onclick = () => {
     played_log: JSON.stringify(played)
   };
 
-  fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
-  cursor++; loadTrial();
+  // ✅ [수정됨] UI 차단 및 전송 대기 로직 시작
+  const nextBtn = document.getElementById("nextBtn");
+  nextBtn.disabled = true;  // 1. 버튼 비활성화 (중복 클릭 방지)
+  nextBtn.innerText = "Saving..."; // 2. 저장 중임을 표시
+
+  // 3. 재시도 로직이 포함된 함수로 전송
+  const success = await sendDataWithRetry(GAS_URL, payload);
+
+  if (success) {
+      cursor++; 
+      loadTrial(); // 성공 시 다음 시행으로 넘어감
+  } else {
+      // 실패 시 사용자에게 알림 (데이터가 씹히는 것 방지)
+      alert("네트워크 오류로 데이터를 저장하지 못했습니다. 인터넷 연결을 확인하고 다시 'Next'를 눌러주세요.");
+      nextBtn.disabled = false; // 다시 누를 수 있게 품
+      nextBtn.innerText = "Next";
+  }
 };
 
 window.onload = () => { trials = buildExperiment(); loadTrial(); };
